@@ -34,23 +34,8 @@ func main() {
 		})
 	})
 
-	// @Tags Auth
-	// @Summary Login
-	// @Description Login
-	// @Accept json
-	// @Produce json
-	// @Success 200 {object} MessageResponse
-	// @Router /login [post]
-	r.GET("/login", auth.Login)
-
-	// @Tags Auth
-	// @Summary Register
-	// @Description Register
-	// @Accept json
-	// @Produce json
-	// @Success 200 {object} MessageResponse
-	// @Router /register [post]
-	r.GET("/register", auth.Register)
+	// Auth routes
+	r.GET("/auth/login", auth.LoginHandler)
 
 	r.GET("/hello", hello)
 
