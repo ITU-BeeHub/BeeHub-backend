@@ -1,0 +1,46 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Bu, BeeHub Ders Seçim Botu için API dokümantasyonudur.",
+        "title": "BeeHub Ders Seçim Botu API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/hello": {
+            "get": {
+                "description": "Hello World",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Hello"
+                ],
+                "summary": "Hello World",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.MessageResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "main.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
