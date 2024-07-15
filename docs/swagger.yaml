@@ -1,10 +1,5 @@
 basePath: /
 definitions:
-  auth.MessageResponse:
-    properties:
-      message:
-        type: string
-    type: object
   main.MessageResponse:
     properties:
       message:
@@ -32,34 +27,4 @@ paths:
       summary: Hello World
       tags:
       - Hello
-  /login:
-    post:
-      consumes:
-      - application/json
-      description: Login
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.MessageResponse'
-      summary: Login
-      tags:
-      - Auth
-  /register:
-    post:
-      consumes:
-      - application/json
-      description: Register
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.MessageResponse'
-      summary: Register
-      tags:
-      - Auth
 swagger: "2.0"
