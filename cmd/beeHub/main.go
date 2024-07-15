@@ -1,14 +1,24 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
-	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
-	"github.com/gin-gonic/gin"
+	gin "github.com/gin-gonic/gin"
+	godotenv "github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// Loads environment variables from a .env file.
+func loadEnvVariables() {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+	}
+}
 
 // MessageResponse represents a JSON response with a message
 type MessageResponse struct {
@@ -22,10 +32,15 @@ type MessageResponse struct {
 // @host localhost:8080
 // @BasePath /
 func main() {
+	loadEnvVariables()
+
 	r := gin.Default()
 
 	// Swagger handler
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// if SWAGGER_ENABLED == true in .env, enable swagger
+	if os.Getenv("SWAGGER_ENABLED") == "true" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// Example route
 	r.GET("/", func(c *gin.Context) {
@@ -34,9 +49,12 @@ func main() {
 		})
 	})
 
+<<<<<<< HEAD
 	// Auth routes
 	r.GET("/auth/login", auth.LoginHandler)
 
+=======
+>>>>>>> a38b22f3bbea32729e7931323469de26867db098
 	r.GET("/hello", hello)
 
 	r.Run(":8080")
