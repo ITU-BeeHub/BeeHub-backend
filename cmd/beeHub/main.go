@@ -3,7 +3,8 @@ package main
 import (
 	"net/http"
 
-	_ "github.com/ITU-BeeHub/BeeHub-backend/cmd/beeHub/docs"
+	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
+	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -33,6 +34,24 @@ func main() {
 		})
 	})
 
+	// @Tags Auth
+	// @Summary Login
+	// @Description Login
+	// @Accept json
+	// @Produce json
+	// @Success 200 {object} MessageResponse
+	// @Router /login [post]
+	r.GET("/login", auth.Login)
+
+	// @Tags Auth
+	// @Summary Register
+	// @Description Register
+	// @Accept json
+	// @Produce json
+	// @Success 200 {object} MessageResponse
+	// @Router /register [post]
+	r.GET("/register", auth.Register)
+
 	r.GET("/hello", hello)
 
 	r.Run(":8080")
@@ -50,5 +69,3 @@ func hello(c *gin.Context) {
 		Message: "hello world",
 	})
 }
-
-// swag init
