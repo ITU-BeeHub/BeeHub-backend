@@ -6,6 +6,7 @@ import (
 	"os"
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
+	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
 	gin "github.com/gin-gonic/gin"
 	godotenv "github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
@@ -49,12 +50,9 @@ func main() {
 		})
 	})
 
-<<<<<<< HEAD
 	// Auth routes
 	r.GET("/auth/login", auth.LoginHandler)
 
-=======
->>>>>>> a38b22f3bbea32729e7931323469de26867db098
 	r.GET("/hello", hello)
 
 	r.Run(":8080")
