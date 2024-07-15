@@ -10,7 +10,13 @@ require (
 )
 
 require (
+	github.com/andybalholm/cascadia v1.3.2 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
+)
+
+require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
