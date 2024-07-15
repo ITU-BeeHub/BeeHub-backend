@@ -1,0 +1,9 @@
+basePath: /
+host: localhost:8080
+info:
+  contact: {}
+  description: Bu, BeeHub Ders Seçim Botu için API dokümantasyonudur.
+  title: BeeHub Ders Seçim Botu API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

@@ -1,0 +1,12 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Bu, BeeHub Ders Seçim Botu için API dokümantasyonudur.",
+        "title": "BeeHub Ders Seçim Botu API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {}
+}
