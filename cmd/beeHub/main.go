@@ -50,3 +50,5 @@ func hello(c *gin.Context) {
 		Message: "hello world",
 	})
 }
+
+// swag init
