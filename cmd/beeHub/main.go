@@ -38,9 +38,12 @@ func main() {
 	r := gin.Default()
 
 	// Swagger handler
-	// if SWAGGER_ENABLED == true in .env, enable swagger
+	// if SWAGGER_ENABLED=true in .env, enable swagger
 	if os.Getenv("SWAGGER_ENABLED") == "true" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	} else {
+		fmt.Println("Swagger is disabled")
+
 	}
 
 	// Example route
