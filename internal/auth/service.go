@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -16,7 +17,7 @@ import (
 
 const token_url = "https://kepler-beta.itu.edu.tr/ogrenci/auth/jwt"
 
-func LoginService() (string, string, error) {
+func LoginService() (string, error) {
 	// .env dosyasını yükle
 	err := godotenv.Load()
 	if err != nil {
@@ -147,7 +148,7 @@ func LoginService() (string, string, error) {
 
 	// Yanıtı kontrol et
 	if resp.StatusCode != http.StatusOK {
-		return "", resp.Status, fmt.Errorf("bad status: %s", resp.Status)
+		return "", fmt.Errorf("bad status")
 	}
 
 	req, err = http.NewRequest("GET", token_url, nil)
@@ -165,6 +166,40 @@ func LoginService() (string, string, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return string(body), resp.Status, nil
 
+	// check if user is logged in
+	if !isLoggedIn(body) {
+		return "", fmt.Errorf("login failed")
+	}
+
+	return string(body), nil
+
+}
+
+// Returns true if user is logged in
+//
+// Works by checking if the response is a html document
+// If response is a html document then user is not logged in
+func isLoggedIn(body []byte) bool {
+
+	doc, err := html.Parse(bytes.NewReader(body))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Check if the response contains a login form
+	var hasLoginForm bool
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "form" {
+			hasLoginForm = true
+			return
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+	f(doc)
+
+	return !hasLoginForm
 }
