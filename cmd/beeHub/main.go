@@ -7,6 +7,8 @@ import (
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
 	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
+	beepicker "github.com/ITU-BeeHub/BeeHub-backend/internal/beepicker"
+
 	gin "github.com/gin-gonic/gin"
 	godotenv "github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
@@ -55,6 +57,9 @@ func main() {
 
 	// Auth routes
 	r.GET("/auth/login", auth.LoginHandler)
+
+	// Course routes
+	r.GET("/beePicker/courses", beepicker.CourseHandler)
 
 	r.GET("/hello", hello)
 

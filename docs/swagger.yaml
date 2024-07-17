@@ -22,6 +22,16 @@ paths:
       summary: Hello World
       tags:
       - Login
+  /beePicker/courses:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: Hello World
+      tags:
+      - BeePicker
   /hello:
     get:
       consumes:

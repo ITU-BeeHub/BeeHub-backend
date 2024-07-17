@@ -30,6 +30,21 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/beePicker/courses": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BeePicker"
+                ],
+                "summary": "Hello World",
+                "responses": {}
+            }
+        },
         "/hello": {
             "get": {
                 "description": "Hello World",
