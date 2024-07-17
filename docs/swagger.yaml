@@ -12,6 +12,16 @@ info:
   title: BeeHub Ders Seçim Botu API
   version: "1.0"
 paths:
+  /auth/login:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - text/html
+      responses: {}
+      summary: Hello World
+      tags:
+      - Login
   /hello:
     get:
       consumes:
