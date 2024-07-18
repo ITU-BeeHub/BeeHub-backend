@@ -24,12 +24,10 @@ paths:
       - Login
   /beePicker/courses:
     get:
-      consumes:
-      - application/json
       produces:
       - application/json
       responses: {}
-      summary: Hello World
+      summary: Retrieves courses from the BeePicker.
       tags:
       - BeePicker
   /hello:

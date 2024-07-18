@@ -8,20 +8,12 @@ import (
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
 	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
 	beepicker "github.com/ITU-BeeHub/BeeHub-backend/internal/beepicker"
+	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
 
 	gin "github.com/gin-gonic/gin"
-	godotenv "github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
-
-// Loads environment variables from a .env file.
-func loadEnvVariables() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file")
-	}
-}
 
 // MessageResponse represents a JSON response with a message
 type MessageResponse struct {
@@ -35,7 +27,7 @@ type MessageResponse struct {
 // @host localhost:8080
 // @BasePath /
 func main() {
-	loadEnvVariables()
+	utils.LoadEnvVariables()
 
 	r := gin.Default()
 

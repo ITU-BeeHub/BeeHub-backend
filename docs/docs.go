@@ -32,16 +32,13 @@ const docTemplate = `{
         },
         "/beePicker/courses": {
             "get": {
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "BeePicker"
                 ],
-                "summary": "Hello World",
+                "summary": "Retrieves courses from the BeePicker.",
                 "responses": {}
             }
         },

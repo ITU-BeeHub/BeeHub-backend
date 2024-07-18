@@ -2,13 +2,14 @@ package beepicker
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
 	"sync"
 )
 
-const repo_URL = "https://github.com/ITU-BeeHub/BeeHub-courseScraper/tree/main/public"
+const raw_repo_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public"
 const most_recent_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/most_recent.txt"
 const course_codes_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/course_codes.json"
 
@@ -16,17 +17,17 @@ func CourseService() ([]map[string]string, error) {
 
 	folder, err := getNewestFolder()
 	if err != nil {
-		return nil, err
+		return nil, errors.New("error getting newest folder")
 	}
 
 	course_codes, err := getCourseCodes()
 	if err != nil {
-		return nil, err
+		return nil, errors.New("error getting course codes")
 	}
 
 	data, err := createJsonResponse(course_codes, folder)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("error getting course data")
 	}
 
 	return data, nil
@@ -35,7 +36,7 @@ func CourseService() ([]map[string]string, error) {
 func createJsonResponse(course_codes []string, newest_folder string) ([]map[string]string, error) {
 	// Merges all course jsons into one json and returns it as a slice of maps
 
-	base_url := "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/" + newest_folder + "/"
+	base_url := raw_repo_URL + "/" + newest_folder + "/"
 
 	var allCourses []map[string]string
 
