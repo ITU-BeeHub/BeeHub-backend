@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
 	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
-	beepicker "github.com/ITU-BeeHub/BeeHub-backend/internal/beepicker"
+	beepicker "github.com/ITU-BeeHub/BeeHub-backend/internal/beePicker"
 	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
 
 	gin "github.com/gin-gonic/gin"
@@ -50,8 +50,10 @@ func main() {
 	// Auth routes
 	r.GET("/auth/login", auth.LoginHandler)
 
-	// Course routes
+	// beePicker routes
 	r.GET("/beePicker/courses", beepicker.CourseHandler)
+	r.GET("/beePicker/schedule", beepicker.ScheduleHandler)
+	r.POST("/beePicker/schedule", beepicker.ScheduleSaveHandler)
 
 	r.GET("/hello", hello)
 

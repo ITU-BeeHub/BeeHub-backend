@@ -1,5 +1,18 @@
 basePath: /
 definitions:
+  beepicker.ScheduleSaveRequest:
+    properties:
+      ECRN:
+        items:
+          type: integer
+        type: array
+      SCRN:
+        items:
+          type: integer
+        type: array
+      scheduleName:
+        type: string
+    type: object
   main.MessageResponse:
     properties:
       message:
@@ -28,6 +41,42 @@ paths:
       - application/json
       responses: {}
       summary: Retrieves courses from the BeePicker.
+      tags:
+      - BeePicker
+  /beePicker/schedule:
+    get:
+      produces:
+      - application/json
+      responses: {}
+      summary: Retrieves schedules from the BeePicker.
+      tags:
+      - BeePicker
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Request body containing the ECRN
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/beepicker.ScheduleSaveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Selection successful
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Selects a course from the BeePicker.
       tags:
       - BeePicker
   /hello:

@@ -42,6 +42,61 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/beePicker/schedule": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BeePicker"
+                ],
+                "summary": "Retrieves schedules from the BeePicker.",
+                "responses": {}
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BeePicker"
+                ],
+                "summary": "Selects a course from the BeePicker.",
+                "parameters": [
+                    {
+                        "description": "Request body containing the ECRN",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/beepicker.ScheduleSaveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Selection successful",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/hello": {
             "get": {
                 "description": "Hello World",
@@ -67,6 +122,26 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "beepicker.ScheduleSaveRequest": {
+            "type": "object",
+            "properties": {
+                "ECRN": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "SCRN": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "scheduleName": {
+                    "type": "string"
+                }
+            }
+        },
         "main.MessageResponse": {
             "type": "object",
             "properties": {
