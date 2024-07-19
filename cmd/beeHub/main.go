@@ -7,6 +7,8 @@ import (
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
 	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
+	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
+	"github.com/ITU-BeeHub/BeeHub-backend/pkg/models"
 	gin "github.com/gin-gonic/gin"
 	godotenv "github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
@@ -33,6 +35,11 @@ type MessageResponse struct {
 // @host localhost:8080
 // @BasePath /
 func main() {
+
+	personManager := pkg.NewPersonManager()
+
+	person := &models.Person{}
+	personManager.UpdatePerson(person)
 	loadEnvVariables()
 
 	r := gin.Default()
@@ -45,19 +52,20 @@ func main() {
 		fmt.Println("Swagger is disabled")
 
 	}
-
-	// Example route
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, MessageResponse{
-			Message: "hello world",
-		})
-	})
-
-	// Auth routes
-	r.GET("/auth/login", auth.LoginHandler)
-
 	r.GET("/hello", hello)
 
+	authService := auth.NewService(personManager)
+	authHandler := auth.NewHandler(authService)
+
+	// Auth routes
+	r.POST("/auth/login", authHandler.LoginHandler)
+
+	// Protected routes
+	protected := r.Group("/")
+	protected.Use(auth.AuthMiddleware(authService))
+	{
+		protected.GET("/auth/profile", authHandler.ProfileHandler)
+	}
 	r.Run(":8080")
 }
 
@@ -72,4 +80,5 @@ func hello(c *gin.Context) {
 	c.JSON(http.StatusOK, MessageResponse{
 		Message: "hello world",
 	})
+
 }

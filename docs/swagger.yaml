@@ -1,5 +1,15 @@
 basePath: /
 definitions:
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
   main.MessageResponse:
     properties:
       message:
@@ -13,15 +23,32 @@ info:
   version: "1.0"
 paths:
   /auth/login:
-    get:
+    post:
       consumes:
       - application/json
+      parameters:
+      - description: Login credentials
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
       produces:
-      - text/html
+      - application/json
       responses: {}
       summary: Hello World
       tags:
       - Login
+  /auth/profile:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: Hello World
+      tags:
+      - Profile
   /hello:
     get:
       consumes:

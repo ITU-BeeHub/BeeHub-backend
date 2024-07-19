@@ -1,21 +1,19 @@
 package models
 
+import "time"
+
 type Person struct {
-	email    string
-	password string
-}
-
-func (p *Person) GetEmail() string {
-	return p.email
-}
-
-func (p *Person) GetPassword() string {
-	return p.password
-}
-
-func NewPerson(email, password string) *Person {
-	return &Person{
-		email:    email,
-		password: password,
-	}
+	Email             string    `json:"email"`
+	Password          string    `json:"password"`
+	First_name        string    `json:"first_name"`
+	Last_name         string    `json:"last_name"`
+	Photo_base64      string    `json:"photo_location"`
+	Token             string    `json:"token"`
+	Class             string    `json:"class"`
+	Faculty           string    `json:"faculty"`
+	Department        string    `json:"departmant"`
+	Gender            string    `json:"gender"`
+	GPA               string    `json:"gpa"`
+	Transcript_base64 string    `json:"transcript"`
+	LoginTime         time.Time `json:"loginTime"`
 }
