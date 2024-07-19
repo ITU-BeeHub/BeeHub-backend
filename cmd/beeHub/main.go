@@ -55,8 +55,10 @@ func main() {
 
 	r.POST("/auth/login", authHandler.LoginHandler)
 
-	// Course routes
+	// beePicker routes
 	r.GET("/beePicker/courses", beepicker.CourseHandler)
+	r.GET("/beePicker/schedule", beepicker.ScheduleHandler)
+	r.POST("/beePicker/schedule", beepicker.ScheduleSaveHandler)
 
 	r.GET("/hello", hello)
 
