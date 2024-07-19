@@ -163,6 +163,26 @@ const docTemplate = `{
                 }
             }
         },
+        "beepicker.ScheduleSaveRequest": {
+            "type": "object",
+            "properties": {
+                "ECRN": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "SCRN": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "scheduleName": {
+                    "type": "string"
+                }
+            }
+        },
         "main.MessageResponse": {
             "type": "object",
             "properties": {

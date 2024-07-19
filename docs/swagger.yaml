@@ -10,6 +10,19 @@ definitions:
     - email
     - password
     type: object
+  beepicker.ScheduleSaveRequest:
+    properties:
+      ECRN:
+        items:
+          type: integer
+        type: array
+      SCRN:
+        items:
+          type: integer
+        type: array
+      scheduleName:
+        type: string
+    type: object
   main.MessageResponse:
     properties:
       message:
