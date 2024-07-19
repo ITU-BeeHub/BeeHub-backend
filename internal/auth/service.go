@@ -2,36 +2,35 @@ package auth
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"os"
 	"strings"
 
-	"github.com/joho/godotenv"
+	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
+	models "github.com/ITU-BeeHub/BeeHub-backend/pkg/models"
 	"golang.org/x/net/html"
 )
 
 const token_url = "https://kepler-beta.itu.edu.tr/ogrenci/auth/jwt"
+const photo_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/OgrenciFotograf"
+const gpa_and_grade_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/AkademikDurum/759"
+const personal_info_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/KisiselBilgiler/"
+const transcript_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/Belgeler/TranskriptIngilizceOnizleme"
 
-func LoginService() (string, error) {
-	// .env dosyasını yükle
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	// ITU_USERNAME ve ITU_PASSWORD değerlerini oku
-	username := os.Getenv("ITU_USERNAME")
-	password := os.Getenv("ITU_PASSWORD")
+type Service struct {
+	personManager *pkg.PersonManager
+}
 
-	if username == "" || password == "" {
-		log.Fatal("ITU_USERNAME or ITU_PASSWORD not found in .env file")
-	} else {
-		fmt.Println("ITU_USERNAME:", username)
-	}
+func NewService(personManager *pkg.PersonManager) *Service {
+	return &Service{personManager: personManager}
+}
+
+func (s *Service) LoginService(email, password string) (string, error) {
 
 	// Cookie jar oluştur
 	jar, err := cookiejar.New(nil)
@@ -127,7 +126,7 @@ func LoginService() (string, error) {
 		"__VIEWSTATEGENERATOR":                 {viewstategenerator},
 		"__EVENTVALIDATION":                    {eventvalidation},
 		"ctl00$ContentPlaceHolder1$hfAppName":  {"Öğrenci Bilgi Sistemi"},
-		"ctl00$ContentPlaceHolder1$tbUserName": {username},
+		"ctl00$ContentPlaceHolder1$tbUserName": {email},
 		"ctl00$ContentPlaceHolder1$tbPassword": {password},
 		"ctl00$ContentPlaceHolder1$btnLogin":   {"Giriş / Login"},
 	}
@@ -171,7 +170,12 @@ func LoginService() (string, error) {
 	if !isLoggedIn(body) {
 		return "", fmt.Errorf("login failed")
 	}
-
+	person := s.personManager.GetPerson()
+	s.personManager.SetEmail(email)
+	s.personManager.SetPassword(password)
+	s.personManager.UpdateLoginTime()
+	s.personManager.UpdateToken(string(body))
+	s.personManager.UpdatePerson(person)
 	return string(body), nil
 
 }
@@ -202,4 +206,137 @@ func isLoggedIn(body []byte) bool {
 	f(doc)
 
 	return !hasLoginForm
+}
+
+func (s *Service) ProfileService(person *models.Person) (models.PersonDTO, error) {
+	token := "Bearer " + s.personManager.GetToken()
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// HTTP client oluştur ve cookie jar ekle
+	client := &http.Client{
+		Jar: jar,
+	}
+
+	// İlk GET isteği için headers tanımla
+	req, err := http.NewRequest("GET", personal_info_url, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	req.Header.Set("User-Agent", "BeeHub")
+	req.Header.Set("Authorization", token)
+	// İstek gönder
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var info_response map[string]interface{}
+	err = json.Unmarshal(body, &info_response)
+	if err != nil {
+		log.Fatal(err)
+
+	}
+	// Accessing the nested map and the adSoyad field
+	if kisiselBilgiler, ok := info_response["kisiselBilgiler"].(map[string]interface{}); ok {
+
+		name, ok := kisiselBilgiler["adSoyad"].(string)
+		if ok {
+			// Splitting the name into first and last name
+			names := strings.Split(name, " ")
+			if len(names) >= 2 {
+
+				person.First_name = names[0]
+				person.Last_name = names[1]
+			}
+		}
+		email, ok := kisiselBilgiler["ePosta"].(string)
+		if ok {
+			person.Email = email
+		}
+		department, ok := kisiselBilgiler["bolumAdiEN"].(string)
+		if ok {
+			person.Department = department
+		}
+		faculty, ok := kisiselBilgiler["fakulteEN"].(string)
+		if ok {
+			person.Faculty = faculty
+		}
+	} else {
+		fmt.Println("kisiselBilgiler field is not a map or not found")
+	}
+
+	// Fotoğraf isteği için headers tanımla
+	req, err = http.NewRequest("GET", photo_url, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	req.Header.Set("Authorization", token)
+	// İstek gönder
+	resp, err = client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var photoResponse map[string]interface{}
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = json.Unmarshal(body, &photoResponse)
+	if err != nil {
+		log.Fatal(err)
+	}
+	photoBase64, ok := photoResponse["base64Fotograf"].(string)
+	if ok {
+		person.Photo_base64 = photoBase64
+	}
+
+	// GPA ve sınıf isteği için headers tanımla
+	req, err = http.NewRequest("GET", gpa_and_grade_url, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	req.Header.Set("Authorization", token)
+	// İstek gönder
+	resp, err = client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	var classResponse map[string]interface{}
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = json.Unmarshal(body, &classResponse)
+	if err != nil {
+		log.Fatal(err)
+
+	}
+
+	if academicInfo, ok := classResponse["akademikDurum"].(map[string]interface{}); ok {
+		class, ok := academicInfo["sinifSeviye"].(string)
+		if ok {
+			person.Class = string(class)[0:1]
+		}
+		gpa, ok := academicInfo["genelNotOrtalamasi"].(float64)
+		if ok {
+			person.GPA = fmt.Sprintf("%.2f", gpa)
+		}
+	}
+
+	// Person güncelle ve DTO oluştur
+	s.personManager.UpdatePerson(person)
+	personDTO := models.ToPersonDTO(*person)
+	return personDTO, nil
 }
