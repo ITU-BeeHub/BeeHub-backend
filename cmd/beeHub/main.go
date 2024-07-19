@@ -7,21 +7,17 @@ import (
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
 	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
+
 	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
 	"github.com/ITU-BeeHub/BeeHub-backend/pkg/models"
+	beepicker "github.com/ITU-BeeHub/BeeHub-backend/internal/beepicker"
+	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
+
+
 	gin "github.com/gin-gonic/gin"
-	godotenv "github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
-
-// Loads environment variables from a .env file.
-func loadEnvVariables() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file")
-	}
-}
 
 // MessageResponse represents a JSON response with a message
 type MessageResponse struct {
@@ -36,11 +32,15 @@ type MessageResponse struct {
 // @BasePath /
 func main() {
 
+
 	personManager := pkg.NewPersonManager()
 
 	person := &models.Person{}
 	personManager.UpdatePerson(person)
 	loadEnvVariables()
+
+	utils.LoadEnvVariables()
+
 
 	r := gin.Default()
 
@@ -57,8 +57,14 @@ func main() {
 	authService := auth.NewService(personManager)
 	authHandler := auth.NewHandler(authService)
 
-	// Auth routes
+
 	r.POST("/auth/login", authHandler.LoginHandler)
+
+	// Course routes
+	r.GET("/beePicker/courses", beepicker.CourseHandler)
+
+	r.GET("/hello", hello)
+
 
 	// Protected routes
 	protected := r.Group("/")

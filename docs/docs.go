@@ -56,6 +56,18 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/beePicker/courses": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BeePicker"
+                ],
+                "summary": "Retrieves courses from the BeePicker.",
+                "responses": {}
+            }
+        },
         "/hello": {
             "get": {
                 "description": "Hello World",
