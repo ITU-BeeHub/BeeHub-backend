@@ -6,14 +6,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
 // CourseHandler handles the request for retrieving courses from the BeePicker.
 // @Tags BeePicker
 // @Summary Retrieves courses from the BeePicker.
 // @Produce json
 // @Router /beePicker/courses [get]
-func CourseHandler(c *gin.Context) {
+func (h *Handler) CourseHandler(c *gin.Context) {
 
-	data, err := CourseService()
+	data, err := h.service.CourseService()
 
 	if err != nil {
 		switch err.Error() {
@@ -44,7 +52,7 @@ type ScheduleSaveRequest struct {
 // @Failure 400 {object} string "Bad request"
 // @Failure 500 {object} string "Internal server error"
 // @Router /beePicker/schedule [post]
-func ScheduleSaveHandler(c *gin.Context) {
+func (h *Handler) ScheduleSaveHandler(c *gin.Context) {
 
 	var req ScheduleSaveRequest
 
@@ -54,7 +62,7 @@ func ScheduleSaveHandler(c *gin.Context) {
 	}
 
 	// Save the schedule
-	err := ScheduleSaveService(req.ScheduleName, req.ECRN, req.SCRN)
+	err := h.service.ScheduleSaveService(req.ScheduleName, req.ECRN, req.SCRN)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}
@@ -67,10 +75,10 @@ func ScheduleSaveHandler(c *gin.Context) {
 // @Summary Retrieves schedules from the BeePicker.
 // @Produce json
 // @Router /beePicker/schedule [get]
-func ScheduleHandler(c *gin.Context) {
+func (h *Handler) ScheduleHandler(c *gin.Context) {
 
 	// Get the schedules
-	data, err := SchedulesService()
+	data, err := h.service.SchedulesService()
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

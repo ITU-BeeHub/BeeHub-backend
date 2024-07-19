@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
@@ -37,8 +36,6 @@ func main() {
 	personManager.UpdatePerson(person)
 	utils.LoadEnvVariables()
 
-	utils.LoadEnvVariables()
-
 	r := gin.Default()
 
 	// Swagger handler
@@ -56,11 +53,13 @@ func main() {
 	r.POST("/auth/login", authHandler.LoginHandler)
 
 	// beePicker routes
-	r.GET("/beePicker/courses", beepicker.CourseHandler)
-	r.GET("/beePicker/schedule", beepicker.ScheduleHandler)
-	r.POST("/beePicker/schedule", beepicker.ScheduleSaveHandler)
 
-	r.GET("/hello", hello)
+	beePickerService := beepicker.NewService()
+	beePickerHandler := beepicker.NewHandler(beePickerService)
+
+	r.GET("/beePicker/courses", beePickerHandler.CourseHandler)
+	r.GET("/beePicker/schedule", beePickerHandler.ScheduleHandler)
+	r.POST("/beePicker/schedule", beePickerHandler.ScheduleSaveHandler)
 
 	// Protected routes
 	protected := r.Group("/")
@@ -69,18 +68,4 @@ func main() {
 		protected.GET("/auth/profile", authHandler.ProfileHandler)
 	}
 	r.Run(":8080")
-}
-
-// @Tags Hello
-// @Summary Hello World
-// @Description Hello World
-// @Accept json
-// @Produce json
-// @Success 200 {object} MessageResponse
-// @Router /hello [get]
-func hello(c *gin.Context) {
-	c.JSON(http.StatusOK, MessageResponse{
-		Message: "hello world",
-	})
-
 }

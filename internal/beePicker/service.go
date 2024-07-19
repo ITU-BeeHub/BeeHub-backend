@@ -15,7 +15,14 @@ const raw_repo_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-course
 const most_recent_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/most_recent.txt"
 const course_codes_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/course_codes.json"
 
-func CourseService() ([]map[string]string, error) {
+type Service struct {
+}
+
+func NewService() *Service {
+	return &Service{}
+}
+
+func (s *Service) CourseService() ([]map[string]string, error) {
 
 	folder, err := getNewestFolder()
 	if err != nil {
@@ -36,7 +43,7 @@ func CourseService() ([]map[string]string, error) {
 }
 
 // Returns the schedules of the user
-func SchedulesService() (utils.ScheduleList, error) {
+func (s *Service) SchedulesService() (utils.ScheduleList, error) {
 
 	// Get the schedules
 	schedules, err := utils.GetUserSchedules()
@@ -50,7 +57,7 @@ func SchedulesService() (utils.ScheduleList, error) {
 // Saves the schedule of the user in the schedules.json file
 // If the schedule already exists, updates the schedule (overwrites the old one)
 // If the schedule does not exist, creates a new schedule
-func ScheduleSaveService(schedule_name string, ecrn []int, scrn []int) error {
+func (s *Service) ScheduleSaveService(schedule_name string, ecrn []int, scrn []int) error {
 
 	// Get the schedules
 	schedules, err := utils.GetUserSchedules()
