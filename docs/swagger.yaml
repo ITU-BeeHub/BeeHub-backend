@@ -1,0 +1,75 @@
+basePath: /
+definitions:
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  main.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Bu, BeeHub Ders Seçim Botu için API dokümantasyonudur.
+  title: BeeHub Ders Seçim Botu API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Login credentials
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses: {}
+      summary: Hello World
+      tags:
+      - Login
+  /auth/profile:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: Hello World
+      tags:
+      - Profile
+  /beePicker/courses:
+    get:
+      produces:
+      - application/json
+      responses: {}
+      summary: Retrieves courses from the BeePicker.
+      tags:
+      - BeePicker
+  /hello:
+    get:
+      consumes:
+      - application/json
+      description: Hello World
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.MessageResponse'
+      summary: Hello World
+      tags:
+      - Hello
+swagger: "2.0"

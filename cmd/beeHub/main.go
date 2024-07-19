@@ -8,11 +8,10 @@ import (
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
 	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
 
+	beepicker "github.com/ITU-BeeHub/BeeHub-backend/internal/beePicker"
 	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
 	"github.com/ITU-BeeHub/BeeHub-backend/pkg/models"
-	beepicker "github.com/ITU-BeeHub/BeeHub-backend/internal/beepicker"
 	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
-
 
 	gin "github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -32,15 +31,13 @@ type MessageResponse struct {
 // @BasePath /
 func main() {
 
-
 	personManager := pkg.NewPersonManager()
 
 	person := &models.Person{}
 	personManager.UpdatePerson(person)
-	loadEnvVariables()
-
 	utils.LoadEnvVariables()
 
+	utils.LoadEnvVariables()
 
 	r := gin.Default()
 
@@ -52,11 +49,9 @@ func main() {
 		fmt.Println("Swagger is disabled")
 
 	}
-	r.GET("/hello", hello)
 
 	authService := auth.NewService(personManager)
 	authHandler := auth.NewHandler(authService)
-
 
 	r.POST("/auth/login", authHandler.LoginHandler)
 
@@ -64,7 +59,6 @@ func main() {
 	r.GET("/beePicker/courses", beepicker.CourseHandler)
 
 	r.GET("/hello", hello)
-
 
 	// Protected routes
 	protected := r.Group("/")
