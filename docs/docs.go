@@ -123,24 +123,59 @@ const docTemplate = `{
                 }
             }
         },
-        "/hello": {
+        "/start-service": {
             "get": {
-                "description": "Hello World",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+                "description": "Starts the Windows service for BeeHubBot",
                 "tags": [
-                    "Hello"
+                    "Service"
                 ],
-                "summary": "Hello World",
+                "summary": "Start the BeeHubBot service",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Service started",
                         "schema": {
-                            "$ref": "#/definitions/main.MessageResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error starting service",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stop-service": {
+            "get": {
+                "description": "Stops the Windows service for BeeHubBot",
+                "tags": [
+                    "Service"
+                ],
+                "summary": "Stop the BeeHubBot service",
+                "responses": {
+                    "200": {
+                        "description": "Service stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error stopping service",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -179,14 +214,6 @@ const docTemplate = `{
                     }
                 },
                 "scheduleName": {
-                    "type": "string"
-                }
-            }
-        },
-        "main.MessageResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
                     "type": "string"
                 }
             }
