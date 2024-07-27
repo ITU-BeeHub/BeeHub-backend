@@ -84,7 +84,7 @@ func main() {
 // startService sets the service startup type to automatic and starts the service.
 func startService(c *gin.Context) {
 	if runtime.GOOS == "windows" {
-		cmd := exec.Command("cmd", "/C", "runasadmin.bat")
+		cmd := exec.Command("cmd", "/C", "startasadmin.bat")
 		err := cmd.Run()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error starting service: %v", err)})
@@ -104,21 +104,15 @@ func startService(c *gin.Context) {
 // @Router /stop-service [get]
 // stopService stops the service and sets the startup type to manual.
 func stopService(c *gin.Context) {
-	// Stop the service
-	cmd := exec.Command("sc.exe", "stop", "BeeHubBotService")
-	err := cmd.Run()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error stopping service: %v", err)})
-		return
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command("cmd", "/C", "stopasadmin.bat")
+		err := cmd.Run()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error stopping service: %v", err)})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Service stopped and set to manuel"})
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unsupported OS"})
 	}
-
-	// Change startup type to manual
-	cmd = exec.Command("sc.exe", "config", "BeeHubBotService", "start=", "demand")
-	err = cmd.Run()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error setting service to manual: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Service stopped and set to manual"})
 }

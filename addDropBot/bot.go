@@ -10,15 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kardianos/service"
-
 	"github.com/PuerkitoBio/goquery"
+	"github.com/kardianos/service"
 )
 
 const (
 	baseURL         = "https://www.sis.itu.edu.tr/TR/ogrenci/ders-programi/ders-programi.php?seviye=LS"
 	availabilityURL = "https://www.sis.itu.edu.tr/TR/ogrenci/ders-programi/ders-kontenjan.php?crn="
-	repoRootDir     = "C:\\Users\\Dervis\\Desktop\\github.com\\ITU-BeeHub" // Set this to your repository root directory
+	repoRootDir     = "C:\\Program Files (x86)\\BeeHub"
 	checkInterval   = 1 * time.Minute
 )
 
@@ -49,22 +48,9 @@ func (p *program) run() {
 	for {
 		select {
 		case <-ticker.C:
-			// Your existing code to check for courses
 			courseCodes, err := fetchCourses()
 			if err != nil {
 				log.Fatalf("Error fetching courses: %v", err)
-			}
-
-			date := time.Now().Format("2006-01-02_15-04-05")
-			repoRootDir, err := os.Getwd()
-			if err != nil {
-				log.Fatalf("Error getting current working directory: %v", err)
-			}
-
-			outputDir := filepath.Join(repoRootDir, "public", date)
-			err = os.MkdirAll(outputDir, os.ModePerm)
-			if err != nil {
-				log.Fatalf("Error creating output directory: %v", err)
 			}
 
 			crns := []string{"30366"} // Example CRNs provided by user
@@ -83,7 +69,8 @@ func (p *program) run() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			outputPath := filepath.Join(outputDir, "available_courses.json")
+
+			outputPath := filepath.Join(repoRootDir, "data.json")
 			file, err := os.Create(outputPath)
 			if err != nil {
 				log.Fatalf("Error creating output file: %v", err)
@@ -99,8 +86,9 @@ func (p *program) run() {
 				log.Fatalf("Error writing to file: %v", err)
 			}
 
-			logger.Info("Available courses saved to", outputPath)
+			logger.Info("Available courses saved to ", outputPath)
 			logger.Info(time.Now().Clock())
+
 			file.Close()
 		}
 	}
@@ -188,6 +176,7 @@ func fetchCourses() ([]string, error) {
 
 	return courseCodes, nil
 }
+
 func checkCourseAvailability(courses []Course, crns []string) ([]Course, error) {
 	availableCourses := []Course{}
 	for _, course := range courses {
@@ -199,6 +188,7 @@ func checkCourseAvailability(courses []Course, crns []string) ([]Course, error) 
 	}
 	return availableCourses, nil
 }
+
 func main() {
 	svcConfig := &service.Config{
 		Name:        "BeeHubBotService",
