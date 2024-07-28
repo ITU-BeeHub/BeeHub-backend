@@ -1,24 +1,23 @@
 package main
 
 import (
-	"encoding/json"
+	"bufio"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
+	"github.com/ITU-BeeHub/BeeHub-backend/addDropBot/documents" // Buradaki dosya yolunu proje yapınıza göre düzenleyin
+
 	"github.com/kardianos/service"
 )
 
 const (
 	baseURL         = "https://www.sis.itu.edu.tr/TR/ogrenci/ders-programi/ders-programi.php?seviye=LS"
 	availabilityURL = "https://www.sis.itu.edu.tr/TR/ogrenci/ders-programi/ders-kontenjan.php?crn="
-	repoRootDir     = "C:\\Program Files (x86)\\BeeHub"
-	checkInterval   = 1 * time.Minute
+
+	checkInterval = 16 * time.Minute
 )
 
 type Course struct {
@@ -28,6 +27,9 @@ type Course struct {
 	Capacity   string `json:"capacity"`
 	Enrolement string `json:"enrolement"`
 }
+
+var Token string = ""
+var Duration time.Time
 
 type program struct{}
 
@@ -42,55 +44,104 @@ func (p *program) Start(s service.Service) error {
 }
 
 func (p *program) run() {
+
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			courseCodes, err := fetchCourses()
-			if err != nil {
-				log.Fatalf("Error fetching courses: %v", err)
-			}
+	documentsDir, err := documents.GetDocumentsDir() // GetDocumentsDir fonksiyonunu doğru paketten çağırın
+	if err != nil {
+		log.Fatalf("Failed to get Documents directory: %v", err)
+	}
+	crnFilePath := filepath.Join(documentsDir, ".crns.txt")
 
-			crns := []string{"30366"} // Example CRNs provided by user
-			allCourses := []Course{}
+	crns, err := readCRNsFromFile(crnFilePath)
+	if err != nil {
+		log.Fatalf("Failed to read CRNs from file: %v", err)
+	}
+	credentialsFilePath := filepath.Join(documentsDir, ".credentials.txt")
+	email, password, err := readCredentialsFromFile(credentialsFilePath)
 
-			for _, courseCode := range courseCodes {
-				courses, err := fetchCoursePage(courseCode)
-				if err != nil {
-					log.Printf("Error fetching course page for %s: %v", courseCode, err)
-					continue
-				}
-				allCourses = append(allCourses, courses...)
-			}
+	fmt.Println("CRNs:", crns)
+	if err != nil {
+		log.Fatalf("Error reading CRNs from file: %v", err)
 
-			availableCourses, err := checkCourseAvailability(allCourses, crns)
-			if err != nil {
-				log.Fatal(err)
-			}
+	}
+	allCourses := []Course{}
 
-			outputPath := filepath.Join(repoRootDir, "data.json")
-			file, err := os.Create(outputPath)
-			if err != nil {
-				log.Fatalf("Error creating output file: %v", err)
-			}
-
-			jsonData, err := json.MarshalIndent(availableCourses, "", "  ")
-			if err != nil {
-				log.Fatalf("Error marshalling JSON data: %v", err)
-			}
-
-			_, err = file.Write(jsonData)
-			if err != nil {
-				log.Fatalf("Error writing to file: %v", err)
-			}
-
-			logger.Info("Available courses saved to ", outputPath)
-			logger.Info(time.Now().Clock())
-
-			file.Close()
+	if Token == "" || time.Since(Duration) > 5*time.Hour {
+		token, err := LoginService(email, password)
+		if err != nil {
+			log.Fatalf("Error logging in: %v", err)
 		}
+		Token = token
+		Duration = time.Now()
+	}
+	resp, err := SendCourseRequestsToCRNs(crns)
+	if err != nil {
+		log.Fatalf("Error sending course requests: %v", err)
+	}
+	for i := 0; i < len(crns); i++ {
+		for _, result := range resp.ECRNResultList {
+			if crns[i] == result.CRN {
+				if result.ResultCode == "successResult" || result.ResultCode == "VAL03" {
+					crns = append(crns[:i], crns[i+1:]...)
+				} else {
+					log.Printf("Error adding course %s: %s", result.CRN, result.ResultCode)
+				}
+			}
+
+		}
+	}
+	checkStop(crns)
+	for {
+
+		courseCodes, err := FetchCourses()
+		if err != nil {
+			log.Fatalf("Error fetching courses: %v", err)
+		}
+
+		for _, courseCode := range courseCodes {
+			courses, err := FetchCoursePage(courseCode)
+			if err != nil {
+				log.Printf("Error fetching course page for %s: %v", courseCode, err)
+				continue
+			}
+			allCourses = append(allCourses, courses...)
+		}
+
+		availableCourses, err := CheckCourseAvailability(allCourses, crns)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Available courses: %v", availableCourses)
+		if Token == "" || time.Since(Duration) > 5*time.Hour {
+			token, err := LoginService(email, password)
+			if err != nil {
+				log.Fatalf("Error logging in: %v", err)
+			}
+			Token = token
+			Duration = time.Now()
+		}
+		resp, err := SendCourseRequests(availableCourses)
+		if err != nil {
+			log.Fatalf("Error sending course requests: %v", err)
+		}
+		for i := 0; i < len(crns); i++ {
+			for _, result := range resp.ECRNResultList {
+				if crns[i] == result.CRN {
+					if result.ResultCode == "successResult" || result.ResultCode == "VAL03" {
+						crns = append(crns[:i], crns[i+1:]...)
+					} else {
+						log.Printf("Error adding course %s: %s", result.CRN, result.ResultCode)
+					}
+				}
+
+			}
+		}
+		checkStop(crns)
+		// Wait for the next tick
+		<-ticker.C
+
 	}
 }
 
@@ -99,94 +150,6 @@ func (p *program) Stop(s service.Service) error {
 		logger.Info("Stopping BeeHub Bot Service...")
 	}
 	return nil
-}
-
-func fetchCoursePage(courseCode string) ([]Course, error) {
-	url := fmt.Sprintf("%s&derskodu=%s", baseURL, courseCode)
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch course page: %s", resp.Status)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	table := doc.Find("div.table-responsive")
-	courses := []Course{}
-	headers := []string{}
-
-	table.Find("tr").Each(func(i int, s *goquery.Selection) {
-		if i == 1 {
-			s.Find("td, th").Each(func(_ int, cell *goquery.Selection) {
-				headers = append(headers, strings.TrimSpace(cell.Text()))
-			})
-		} else if i > 1 {
-			course := Course{}
-			s.Find("td, th").Each(func(idx int, cell *goquery.Selection) {
-				switch headers[idx] {
-				case "CRN":
-					course.CRN = strings.TrimSpace(cell.Text())
-				case "Course Code":
-					course.Code = strings.TrimSpace(cell.Text())
-				case "Course Title":
-					course.Name = strings.TrimSpace(cell.Text())
-				case "Capacity":
-					course.Capacity = strings.TrimSpace(cell.Text())
-				case "Enrolled":
-					course.Enrolement = strings.TrimSpace(cell.Text())
-				}
-			})
-			courses = append(courses, course)
-		}
-	})
-
-	return courses, nil
-}
-
-func fetchCourses() ([]string, error) {
-	resp, err := http.Get(baseURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch courses: %s", resp.Status)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var courseCodes []string
-	doc.Find("option").Each(func(i int, s *goquery.Selection) {
-		value, exists := s.Attr("value")
-		if exists && len(value) == 3 {
-			courseCodes = append(courseCodes, value)
-		}
-	})
-
-	return courseCodes, nil
-}
-
-func checkCourseAvailability(courses []Course, crns []string) ([]Course, error) {
-	availableCourses := []Course{}
-	for _, course := range courses {
-		for _, crn := range crns {
-			if course.CRN == crn && course.Capacity != course.Enrolement {
-				availableCourses = append(availableCourses, course)
-			}
-		}
-	}
-	return availableCourses, nil
 }
 
 func main() {
@@ -210,5 +173,52 @@ func main() {
 	err = s.Run()
 	if err != nil {
 		logger.Error(err)
+	}
+}
+
+// readCRNsFromFile reads CRN codes from a specified file
+func readCRNsFromFile(filePath string) ([]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var crns []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		crns = append(crns, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return crns, nil
+}
+
+func readCredentialsFromFile(filepath string) (string, string, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return "", "", err
+	}
+	defer file.Close()
+
+	var email, password string
+	scanner := bufio.NewScanner(file)
+	if scanner.Scan() {
+		email = scanner.Text()
+	}
+	if scanner.Scan() {
+		password = scanner.Text()
+	}
+	if err := scanner.Err(); err != nil {
+		return "", "", err
+	}
+
+	return email, password, nil
+}
+
+func checkStop(crns []string) {
+	if len(crns) == 0 {
+		log.Fatal("All courses have been added.")
 	}
 }
