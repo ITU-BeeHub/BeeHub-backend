@@ -34,7 +34,7 @@ func (s *Service) CourseService() ([]map[string]string, error) {
 		return nil, errors.New("error getting course codes")
 	}
 
-	data, err := createJsonResponse(course_codes, folder)
+	data, err := MergeCourseJsons(course_codes, folder)
 	if err != nil {
 		return nil, errors.New("error getting course data")
 	}
@@ -90,7 +90,7 @@ func (s *Service) ScheduleSaveService(schedule_name string, ecrn []int, scrn []i
 	return nil
 }
 
-func createJsonResponse(course_codes []string, newest_folder string) ([]map[string]string, error) {
+func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string]string, error) {
 	// Merges all course jsons into one json and returns it as a slice of maps
 
 	base_url := raw_repo_URL + "/" + newest_folder + "/"
