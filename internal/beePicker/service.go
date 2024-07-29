@@ -1,7 +1,6 @@
 package beepicker
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
 	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
@@ -196,94 +196,79 @@ func getNewestFolder() (string, error) {
 	return string(most_recent_file_name), nil
 }
 
-func (s *Service) PickService(courses []string) (map[string]interface{}, error) {
-	var wg sync.WaitGroup
-	responses := make(chan map[string]interface{}, 15)
-	errors := make(chan error, 15)
-
-	token := "Bearer " + s.personManager.GetToken()
-
-    for i := 0; i < 1; i++ { // change to 15 later
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
-
-            resp, err := s.sendCourseRequests(courses, token)
-            if err != nil {
-                errors <- err
-                return
-            }
-			fmt.Print(resp.StatusCode())
-            
-            var data map[string]interface{}
-            // Use bytes.NewReader to convert the []byte to io.Reader
-            if err := json.NewDecoder(bytes.NewReader(resp.Body())).Decode(&data); err != nil {
-                errors <- fmt.Errorf("error decoding response: %w", err)
-                return
-            }
-            responses <- data
-        }()
-    }
-
-	go func() {
-		wg.Wait()
-		close(responses)
-		close(errors)
-	}()
-
-	var mergedData map[string]interface{}
-	for response := range responses {
-		mergedData = mergePickResponses(append([]map[string]interface{}{mergedData}, response))
-	}
-
-	if len(errors) > 0 {
-		return nil, <-errors
-	}
-
-	return mergedData, nil
-}
-
-func (s *Service) sendCourseRequests(courses []string, token string) (*resty.Response, error) {
+func (s *Service) PickService(courseCodes []string) (map[string][]map[string]interface{}, error) {
 	client := resty.New()
 
+	responses, err := sendCourseRequests(client, courseCodes, s.personManager.GetToken())
+	if err != nil {
+		return nil, fmt.Errorf("error sending course requests: %v", err)
+	}
+	return mergePickResponses(responses)
+}
+
+func sendCourseRequests(client *resty.Client, courses []string, token string) ([]*resty.Response, error) {
+	var responses []*resty.Response
+	var errors []error
 	headers := map[string]string{
 		"accept":        "application/json, text/plain, */*",
-		"authorization": token,
+		"authorization": "Bearer  " + token,
 		"origin":        "https://kepler-beta.itu.edu.tr",
 		"referer":       "https://kepler-beta.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
 	}
-
-
 	payload := map[string]interface{}{
-		"ECRN": courses,       // CRNs to be added
+		"ECRN": courses,    // Example CRNs to be added
+		"SCRN": []string{}, // Example CRNs to be deleted
+	}
+	for i := 0; i < 3; i++ {
+		resp, err := client.R().
+			SetHeaders(headers).
+			SetBody(payload).
+			Post(kepler_picker_url)
+
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		responses = append(responses, resp)
+		fmt.Println()
+		fmt.Println(responses)
+		// Saniyede bir istek göndermek için bekleme
+		time.Sleep(1 * time.Second)
 	}
 
-	resp, err := client.R().SetHeaders(headers).SetBody(payload).Post(kepler_picker_url)
-	if err != nil {
-		return nil, fmt.Errorf("error sending request: %w", err)
+	if len(errors) > 0 {
+		return nil, fmt.Errorf("errors occurred while sending course requests: %v", errors)
 	}
-	log.Printf("Response: %v", resp) // to be deleted
-	return resp, nil
+
+	return responses, nil
 }
+func mergePickResponses(responses []*resty.Response) (map[string][]map[string]interface{}, error) {
+	pickResults := make(map[string][]map[string]interface{})
 
-func mergePickResponses(responses []map[string]interface{}) map[string]interface{} {
-	//fmt.Print(responses)
-	return map[string]interface{}{}
+	for _, resp := range responses {
+		if resp.StatusCode() != http.StatusOK {
+			return nil, fmt.Errorf("non-200 status code received: %d", resp.StatusCode())
+		}
 
-	//kepler_error_codes := utils.GetErrorCodes()
-	merged := make(map[string]interface{})
-	for _, response := range responses {
-		for key, value := range response {
-			// Merge logic if key already exists
-			if existingValue, exists := merged[key]; exists {
-				// if success
+		var result struct {
+			EcrnResultList []map[string]interface{} `json:"ecrnResultList"`
+			ScrnResultList []map[string]interface{} `json:"scrnResultList"`
+		}
 
-				// if failed
-				merged[key] = append(existingValue.([]interface{}), value)
-			} else {
-				merged[key] = []interface{}{value}
-			}
+		if err := json.Unmarshal(resp.Body(), &result); err != nil {
+			return nil, fmt.Errorf("error unmarshaling response: %v", err)
+		}
+
+		for _, ecrnResult := range result.EcrnResultList {
+			crn := ecrnResult["crn"].(string)
+			pickResults[crn] = append(pickResults[crn], ecrnResult)
+		}
+
+		for _, scrnResult := range result.ScrnResultList {
+			crn := scrnResult["crn"].(string)
+			pickResults[crn] = append(pickResults[crn], scrnResult)
 		}
 	}
-	return merged
+
+	return pickResults, nil
 }
