@@ -23,11 +23,6 @@ definitions:
       scheduleName:
         type: string
     type: object
-  main.MessageResponse:
-    properties:
-      message:
-        type: string
-    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -106,19 +101,42 @@ paths:
       summary: Selects a course from the BeePicker.
       tags:
       - BeePicker
-  /hello:
+  /start-service:
     get:
-      consumes:
-      - application/json
-      description: Hello World
-      produces:
-      - application/json
+      description: Starts the Windows service for BeeHubBot
       responses:
         "200":
-          description: OK
+          description: Service started
           schema:
-            $ref: '#/definitions/main.MessageResponse'
-      summary: Hello World
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Error starting service
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Start the BeeHubBot service
       tags:
-      - Hello
+      - Service
+  /stop-service:
+    get:
+      description: Stops the Windows service for BeeHubBot
+      responses:
+        "200":
+          description: Service stopped
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Error stopping service
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Stop the BeeHubBot service
+      tags:
+      - Service
 swagger: "2.0"

@@ -61,7 +61,6 @@ func (s *Service) LoginService(email, password string) (string, error) {
 		fmt.Println("No redirect found")
 	}
 	loginURL := resp.Request.Response.Request.URL.String()
-	fmt.Println("Login URL:", loginURL)
 
 	// İlk GET isteği için headers tanımla
 	req, err = http.NewRequest("GET", loginURL, nil)
