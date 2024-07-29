@@ -10,7 +10,14 @@ definitions:
     - email
     - password
     type: object
-  beepicker.ScheduleSaveRequest:
+  beepicker.pickRequest:
+    properties:
+      courseCodes:
+        items:
+          type: string
+        type: array
+    type: object
+  beepicker.scheduleSaveRequest:
     properties:
       ECRN:
         items:
@@ -21,11 +28,6 @@ definitions:
           type: integer
         type: array
       scheduleName:
-        type: string
-    type: object
-  main.MessageResponse:
-    properties:
-      message:
         type: string
     type: object
 host: localhost:8080
@@ -70,6 +72,35 @@ paths:
       summary: Retrieves courses from the BeePicker.
       tags:
       - BeePicker
+  /beePicker/pick:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Request body containing the course codes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/beepicker.pickRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Picking successful
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Picks a course from the kepler.
+      tags:
+      - BeePicker
   /beePicker/schedule:
     get:
       produces:
@@ -87,7 +118,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/beepicker.ScheduleSaveRequest'
+          $ref: '#/definitions/beepicker.scheduleSaveRequest'
       produces:
       - application/json
       responses:
@@ -106,19 +137,4 @@ paths:
       summary: Selects a course from the BeePicker.
       tags:
       - BeePicker
-  /hello:
-    get:
-      consumes:
-      - application/json
-      description: Hello World
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/main.MessageResponse'
-      summary: Hello World
-      tags:
-      - Hello
 swagger: "2.0"

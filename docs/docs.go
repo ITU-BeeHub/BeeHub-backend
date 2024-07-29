@@ -68,6 +68,51 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/beePicker/pick": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BeePicker"
+                ],
+                "summary": "Picks a course from the kepler.",
+                "parameters": [
+                    {
+                        "description": "Request body containing the course codes",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/beepicker.pickRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Picking successful",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/beePicker/schedule": {
             "get": {
                 "produces": [
@@ -97,7 +142,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/beepicker.ScheduleSaveRequest"
+                            "$ref": "#/definitions/beepicker.scheduleSaveRequest"
                         }
                     }
                 ],
@@ -122,29 +167,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/hello": {
-            "get": {
-                "description": "Hello World",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Hello"
-                ],
-                "summary": "Hello World",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/main.MessageResponse"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -163,7 +185,18 @@ const docTemplate = `{
                 }
             }
         },
-        "beepicker.ScheduleSaveRequest": {
+        "beepicker.pickRequest": {
+            "type": "object",
+            "properties": {
+                "courseCodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "beepicker.scheduleSaveRequest": {
             "type": "object",
             "properties": {
                 "ECRN": {
@@ -179,14 +212,6 @@ const docTemplate = `{
                     }
                 },
                 "scheduleName": {
-                    "type": "string"
-                }
-            }
-        },
-        "main.MessageResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
                     "type": "string"
                 }
             }

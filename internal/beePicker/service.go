@@ -1,25 +1,33 @@
 package beepicker
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"sync"
 
+	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
 	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
+
+	"github.com/go-resty/resty/v2"
 )
 
 const raw_repo_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public"
 const most_recent_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/most_recent.txt"
 const course_codes_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/course_codes.json"
 
+const kepler_picker_url = "https://kepler-beta.itu.edu.tr/api/ders-kayit/v21"
+
 type Service struct {
+	personManager *pkg.PersonManager
 }
 
-func NewService() *Service {
-	return &Service{}
+func NewService(personManager *pkg.PersonManager) *Service {
+	return &Service{personManager: personManager}
 }
 
 func (s *Service) CourseService() ([]map[string]string, error) {
@@ -186,4 +194,96 @@ func getNewestFolder() (string, error) {
 	}
 
 	return string(most_recent_file_name), nil
+}
+
+func (s *Service) PickService(courses []string) (map[string]interface{}, error) {
+	var wg sync.WaitGroup
+	responses := make(chan map[string]interface{}, 15)
+	errors := make(chan error, 15)
+
+	token := "Bearer " + s.personManager.GetToken()
+
+    for i := 0; i < 1; i++ { // change to 15 later
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+
+            resp, err := s.sendCourseRequests(courses, token)
+            if err != nil {
+                errors <- err
+                return
+            }
+			fmt.Print(resp.StatusCode())
+            
+            var data map[string]interface{}
+            // Use bytes.NewReader to convert the []byte to io.Reader
+            if err := json.NewDecoder(bytes.NewReader(resp.Body())).Decode(&data); err != nil {
+                errors <- fmt.Errorf("error decoding response: %w", err)
+                return
+            }
+            responses <- data
+        }()
+    }
+
+	go func() {
+		wg.Wait()
+		close(responses)
+		close(errors)
+	}()
+
+	var mergedData map[string]interface{}
+	for response := range responses {
+		mergedData = mergePickResponses(append([]map[string]interface{}{mergedData}, response))
+	}
+
+	if len(errors) > 0 {
+		return nil, <-errors
+	}
+
+	return mergedData, nil
+}
+
+func (s *Service) sendCourseRequests(courses []string, token string) (*resty.Response, error) {
+	client := resty.New()
+
+	headers := map[string]string{
+		"accept":        "application/json, text/plain, */*",
+		"authorization": token,
+		"origin":        "https://kepler-beta.itu.edu.tr",
+		"referer":       "https://kepler-beta.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+	}
+
+
+	payload := map[string]interface{}{
+		"ECRN": courses,       // CRNs to be added
+	}
+
+	resp, err := client.R().SetHeaders(headers).SetBody(payload).Post(kepler_picker_url)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %w", err)
+	}
+	log.Printf("Response: %v", resp) // to be deleted
+	return resp, nil
+}
+
+func mergePickResponses(responses []map[string]interface{}) map[string]interface{} {
+	//fmt.Print(responses)
+	return map[string]interface{}{}
+
+	//kepler_error_codes := utils.GetErrorCodes()
+	merged := make(map[string]interface{})
+	for _, response := range responses {
+		for key, value := range response {
+			// Merge logic if key already exists
+			if existingValue, exists := merged[key]; exists {
+				// if success
+
+				// if failed
+				merged[key] = append(existingValue.([]interface{}), value)
+			} else {
+				merged[key] = []interface{}{value}
+			}
+		}
+	}
+	return merged
 }

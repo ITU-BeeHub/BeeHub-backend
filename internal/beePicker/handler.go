@@ -36,7 +36,7 @@ func (h *Handler) CourseHandler(c *gin.Context) {
 
 }
 
-type ScheduleSaveRequest struct {
+type scheduleSaveRequest struct {
 	ScheduleName string `json:"scheduleName"`
 	ECRN         []int  `json:"ECRN"`
 	SCRN         []int  `json:"SCRN"`
@@ -47,14 +47,14 @@ type ScheduleSaveRequest struct {
 // @Summary Selects a course from the BeePicker.
 // @Accept json
 // @Produce json
-// @Param request body ScheduleSaveRequest true "Request body containing the ECRN"
+// @Param request body scheduleSaveRequest true "Request body containing the ECRN"
 // @Success 200 {object} string "Selection successful"
 // @Failure 400 {object} string "Bad request"
 // @Failure 500 {object} string "Internal server error"
 // @Router /beePicker/schedule [post]
 func (h *Handler) ScheduleSaveHandler(c *gin.Context) {
 
-	var req ScheduleSaveRequest
+	var req scheduleSaveRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -87,3 +87,37 @@ func (h *Handler) ScheduleHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 
 }
+
+type pickRequest struct {
+	CourseCodes []string `json:"courseCodes"`
+}
+
+
+// PickHandler handles the request for picking a course from the BeePicker.
+// @Tags BeePicker
+// @Summary Picks a course from the kepler.
+// @Accept json
+// @Produce json
+// @Param request body pickRequest true "Request body containing the course codes"
+// @Success 200 {object} string "Picking successful"
+// @Failure 400 {object} string "Bad request"
+// @Failure 500 {object} string "Internal server error"
+// @Router /beePicker/pick [post]
+func (h *Handler) PickHandler(c *gin.Context) {
+
+	var req pickRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+
+	data, err := h.service.PickService(req.CourseCodes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+

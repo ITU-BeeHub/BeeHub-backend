@@ -11,6 +11,39 @@ import (
 	godotenv "github.com/joho/godotenv"
 )
 
+// Error codes from Kepler
+func GetErrorCodes() map[string]string {
+	return map[string]string{
+		"successResult": "The operation for the course with CRN %s has been successfully completed.",
+		"errorResult":   "No operation was completed in this process group.",
+		"error":         "An error occurred during the operation.",
+		"VAL01":         "The course with CRN %s cannot be added due to a problem.",
+		"VAL02":         "The course with CRN %s cannot be added due to 'Enrollment Time Hold'.",
+		"VAL03":         "The course with CRN %s could not be taken again because it was taken this semester.",
+		"VAL04":         "The course with CRN %s could not be taken because it was not included in the lesson plan.",
+		"VAL05":         "The course with CRN %s cannot be added as the maximum number of credits allowed for this term is exceeded.",
+		"VAL06":         "The course with CRN %s cannot be added as the enrollment limit has been reached and there is no quota left.",
+		"VAL07":         "The course with CRN %s cannot be re-added because this course has been completed before with an AA grade.",
+		"VAL08":         "The course with CRN %s could not be taken because your program is not among the programs that can take this course.",
+		"VAL09":         "The course with CRN %s cannot be added due to a time conflict with another course.",
+		"VAL10":         "No action has been taken because you are not registered for the course with CRN %s this semester.",
+		"VAL11":         "The course with CRN %s cannot be added as its prerequisites are not met.",
+		"VAL12":         "The course with CRN %s is not offered in the respective semester.",
+		"VAL13":         "The course with CRN %s has been temporarily disabled.",
+		"VAL14":         "The system is temporarily disabled.",
+		"VAL15":         "You can send a maximum of 12 CRN parameters.",
+		"VAL16":         "You currently have an ongoing transaction; try again later.",
+		"VAL18":         "The course with CRN %s could not be taken due to 'Attribute Hold'.",
+		"VAL19":         "The course with CRN %s could not be taken because it is an undergraduate course.",
+		"VAL20":         "You can leave only 1 course per semester.",
+		"CRNListEmpty":  "The course with CRN %s is not available during the course selection period.",
+		"CRNNotFound":   "The course with CRN %s is not available during the course selection period.",
+		"ERRLoad":       "This service is temporarily unavailable.",
+		"NULLParam-CheckOgrenciKayitZamaniKontrolu": "The course with CRN %s cannot be added due to 'Enrollment Time Hold'.",
+	}
+}
+
+
 type Schedule struct {
 	Name string `json:"name"`
 	ECRN []int  `json:"ECRN"`

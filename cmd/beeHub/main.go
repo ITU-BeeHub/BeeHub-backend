@@ -54,18 +54,23 @@ func main() {
 
 	// beePicker routes
 
-	beePickerService := beepicker.NewService()
+	beePickerService := beepicker.NewService(personManager)
 	beePickerHandler := beepicker.NewHandler(beePickerService)
 
 	r.GET("/beePicker/courses", beePickerHandler.CourseHandler)
 	r.GET("/beePicker/schedule", beePickerHandler.ScheduleHandler)
 	r.POST("/beePicker/schedule", beePickerHandler.ScheduleSaveHandler)
+	
 
 	// Protected routes
 	protected := r.Group("/")
 	protected.Use(auth.AuthMiddleware(authService))
 	{
+		// auth routes
 		protected.GET("/auth/profile", authHandler.ProfileHandler)
+
+		// beePicker routes
+		protected.POST("/beePicker/pick", beePickerHandler.PickHandler)
 	}
 	r.Run(":8080")
 }
