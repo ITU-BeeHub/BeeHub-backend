@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -40,8 +39,6 @@ func main() {
 	personManager.UpdatePerson(person)
 	utils.LoadEnvVariables()
 
-	utils.LoadEnvVariables()
-
 	r := gin.Default()
 
 	// Swagger handler
@@ -59,21 +56,33 @@ func main() {
 	r.POST("/auth/login", authHandler.LoginHandler)
 
 	// beePicker routes
-	r.GET("/beePicker/courses", beepicker.CourseHandler)
-	r.GET("/beePicker/schedule", beepicker.ScheduleHandler)
-	r.POST("/beePicker/schedule", beepicker.ScheduleSaveHandler)
+
+
+	beePickerService := beepicker.NewService(personManager)
+	beePickerHandler := beepicker.NewHandler(beePickerService)
+
+	r.GET("/beePicker/courses", beePickerHandler.CourseHandler)
+	r.GET("/beePicker/schedule", beePickerHandler.ScheduleHandler)
+	r.POST("/beePicker/schedule", beePickerHandler.ScheduleSaveHandler)
+	
+
 
 	// Protected routes
 	protected := r.Group("/")
 	protected.Use(auth.AuthMiddleware(authService))
 	{
+		// auth routes
 		protected.GET("/auth/profile", authHandler.ProfileHandler)
+
+		// beePicker routes
+		protected.POST("/beePicker/pick", beePickerHandler.PickHandler)
 	}
 
 	r.GET("/start-service", startService)
 	r.GET("/stop-service", stopService)
 	r.Run(":8080")
 }
+
 
 // @Summary Start the BeeHubBot process
 // @Description Starts the BeeHubBot process as a background process
@@ -116,3 +125,4 @@ func stopService(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unsupported OS"})
 	}
 }
+

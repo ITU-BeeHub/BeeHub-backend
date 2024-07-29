@@ -5,6 +5,7 @@ go 1.22.5
 require (
 	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-resty/resty/v2 v2.13.1
 	github.com/joho/godotenv v1.5.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0

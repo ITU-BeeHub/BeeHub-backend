@@ -3,19 +3,34 @@ package beepicker
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
+	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
 	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
+
+	"github.com/go-resty/resty/v2"
 )
 
 const raw_repo_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public"
 const most_recent_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/most_recent.txt"
 const course_codes_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/course_codes.json"
 
-func CourseService() ([]map[string]string, error) {
+const kepler_picker_url = "https://kepler-beta.itu.edu.tr/api/ders-kayit/v21"
+
+type Service struct {
+	personManager *pkg.PersonManager
+}
+
+func NewService(personManager *pkg.PersonManager) *Service {
+	return &Service{personManager: personManager}
+}
+
+func (s *Service) CourseService() ([]map[string]string, error) {
 
 	folder, err := getNewestFolder()
 	if err != nil {
@@ -27,7 +42,7 @@ func CourseService() ([]map[string]string, error) {
 		return nil, errors.New("error getting course codes")
 	}
 
-	data, err := createJsonResponse(course_codes, folder)
+	data, err := MergeCourseJsons(course_codes, folder)
 	if err != nil {
 		return nil, errors.New("error getting course data")
 	}
@@ -36,7 +51,7 @@ func CourseService() ([]map[string]string, error) {
 }
 
 // Returns the schedules of the user
-func SchedulesService() (utils.ScheduleList, error) {
+func (s *Service) SchedulesService() (utils.ScheduleList, error) {
 
 	// Get the schedules
 	schedules, err := utils.GetUserSchedules()
@@ -50,7 +65,7 @@ func SchedulesService() (utils.ScheduleList, error) {
 // Saves the schedule of the user in the schedules.json file
 // If the schedule already exists, updates the schedule (overwrites the old one)
 // If the schedule does not exist, creates a new schedule
-func ScheduleSaveService(schedule_name string, ecrn []int, scrn []int) error {
+func (s *Service) ScheduleSaveService(schedule_name string, ecrn []int, scrn []int) error {
 
 	// Get the schedules
 	schedules, err := utils.GetUserSchedules()
@@ -83,7 +98,7 @@ func ScheduleSaveService(schedule_name string, ecrn []int, scrn []int) error {
 	return nil
 }
 
-func createJsonResponse(course_codes []string, newest_folder string) ([]map[string]string, error) {
+func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string]string, error) {
 	// Merges all course jsons into one json and returns it as a slice of maps
 
 	base_url := raw_repo_URL + "/" + newest_folder + "/"
@@ -179,4 +194,81 @@ func getNewestFolder() (string, error) {
 	}
 
 	return string(most_recent_file_name), nil
+}
+
+func (s *Service) PickService(courseCodes []string) (map[string][]map[string]interface{}, error) {
+	client := resty.New()
+
+	responses, err := sendCourseRequests(client, courseCodes, s.personManager.GetToken())
+	if err != nil {
+		return nil, fmt.Errorf("error sending course requests: %v", err)
+	}
+	return mergePickResponses(responses)
+}
+
+func sendCourseRequests(client *resty.Client, courses []string, token string) ([]*resty.Response, error) {
+	var responses []*resty.Response
+	var errors []error
+	headers := map[string]string{
+		"accept":        "application/json, text/plain, */*",
+		"authorization": "Bearer  " + token,
+		"origin":        "https://kepler-beta.itu.edu.tr",
+		"referer":       "https://kepler-beta.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+	}
+	payload := map[string]interface{}{
+		"ECRN": courses,    // Example CRNs to be added
+		"SCRN": []string{}, // Example CRNs to be deleted
+	}
+	for i := 0; i < 3; i++ {
+		resp, err := client.R().
+			SetHeaders(headers).
+			SetBody(payload).
+			Post(kepler_picker_url)
+
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		responses = append(responses, resp)
+		fmt.Println()
+		fmt.Println(responses)
+		// Saniyede bir istek göndermek için bekleme
+		time.Sleep(1 * time.Second)
+	}
+
+	if len(errors) > 0 {
+		return nil, fmt.Errorf("errors occurred while sending course requests: %v", errors)
+	}
+
+	return responses, nil
+}
+func mergePickResponses(responses []*resty.Response) (map[string][]map[string]interface{}, error) {
+	pickResults := make(map[string][]map[string]interface{})
+
+	for _, resp := range responses {
+		if resp.StatusCode() != http.StatusOK {
+			return nil, fmt.Errorf("non-200 status code received: %d", resp.StatusCode())
+		}
+
+		var result struct {
+			EcrnResultList []map[string]interface{} `json:"ecrnResultList"`
+			ScrnResultList []map[string]interface{} `json:"scrnResultList"`
+		}
+
+		if err := json.Unmarshal(resp.Body(), &result); err != nil {
+			return nil, fmt.Errorf("error unmarshaling response: %v", err)
+		}
+
+		for _, ecrnResult := range result.EcrnResultList {
+			crn := ecrnResult["crn"].(string)
+			pickResults[crn] = append(pickResults[crn], ecrnResult)
+		}
+
+		for _, scrnResult := range result.ScrnResultList {
+			crn := scrnResult["crn"].(string)
+			pickResults[crn] = append(pickResults[crn], scrnResult)
+		}
+	}
+
+	return pickResults, nil
 }
