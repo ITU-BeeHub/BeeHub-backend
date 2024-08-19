@@ -68,6 +68,51 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/beePicker/pick": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BeePicker"
+                ],
+                "summary": "Picks a course from the kepler.",
+                "parameters": [
+                    {
+                        "description": "Request body containing the course codes",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/beepicker.pickRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Picking successful",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/beePicker/schedule": {
             "get": {
                 "produces": [
@@ -97,7 +142,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/beepicker.ScheduleSaveRequest"
+                            "$ref": "#/definitions/beepicker.scheduleSaveRequest"
                         }
                     }
                 ],
@@ -123,24 +168,59 @@ const docTemplate = `{
                 }
             }
         },
-        "/hello": {
+        "/start-service": {
             "get": {
-                "description": "Hello World",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+                "description": "Starts the BeeHubBot process as a background process",
                 "tags": [
-                    "Hello"
+                    "Service"
                 ],
-                "summary": "Hello World",
+                "summary": "Start the BeeHubBot process",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Process started",
                         "schema": {
-                            "$ref": "#/definitions/main.MessageResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error starting process",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stop-service": {
+            "get": {
+                "description": "Stops the BeeHubBot process",
+                "tags": [
+                    "Service"
+                ],
+                "summary": "Stop the BeeHubBot process",
+                "responses": {
+                    "200": {
+                        "description": "Process stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error stopping process",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -163,7 +243,18 @@ const docTemplate = `{
                 }
             }
         },
-        "beepicker.ScheduleSaveRequest": {
+        "beepicker.pickRequest": {
+            "type": "object",
+            "properties": {
+                "courseCodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "beepicker.scheduleSaveRequest": {
             "type": "object",
             "properties": {
                 "ECRN": {
@@ -179,14 +270,6 @@ const docTemplate = `{
                     }
                 },
                 "scheduleName": {
-                    "type": "string"
-                }
-            }
-        },
-        "main.MessageResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
                     "type": "string"
                 }
             }

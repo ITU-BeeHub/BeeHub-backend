@@ -3,11 +3,19 @@ module github.com/ITU-BeeHub/BeeHub-backend
 go 1.22.5
 
 require (
+	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-resty/resty/v2 v2.13.1
 	github.com/joho/godotenv v1.5.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
-	github.com/swaggo/swag v1.16.3
+)
+
+require github.com/gin-contrib/cors v1.7.2 // indirect
+
+require (
+	github.com/andybalholm/cascadia v1.3.2 // indirect
+	github.com/swaggo/swag v1.16.3 //direct
 )
 
 require (
@@ -29,6 +37,7 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kardianos/service v1.2.2
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -41,7 +50,7 @@ require (
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/net v0.27.0 // direct
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.22.0
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
