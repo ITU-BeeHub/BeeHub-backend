@@ -11,6 +11,8 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 )
 
+require github.com/gin-contrib/cors v1.7.2 // indirect
+
 require (
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/swaggo/swag v1.16.3 //direct

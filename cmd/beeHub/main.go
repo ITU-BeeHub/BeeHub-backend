@@ -15,6 +15,7 @@ import (
 	"github.com/ITU-BeeHub/BeeHub-backend/pkg/models"
 	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
 
+	cors "github.com/gin-contrib/cors"
 	gin "github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -42,6 +43,8 @@ func main() {
 
 	r := gin.Default()
 
+	// CORS middleware'ini ekleyin
+	r.Use(cors.Default())
 	// Swagger handler
 	// if SWAGGER_ENABLED=true in .env, enable swagger
 	if os.Getenv("SWAGGER_ENABLED") == "true" {
