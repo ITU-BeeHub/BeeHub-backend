@@ -43,8 +43,17 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS middleware'ini ekleyin
-	r.Use(cors.Default())
+    // CORS configuration
+    r.Use(cors.New(cors.Config{
+        AllowOrigins:     []string{"http://localhost:5173"}, // Adjust this to your frontend's URL
+        AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+        AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+        ExposeHeaders:    []string{"Content-Length"},
+        AllowCredentials: true,
+        MaxAge:           12 * 60 * 60, // 12 hours
+    }))
+
+	
 	// Swagger handler
 	// if SWAGGER_ENABLED=true in .env, enable swagger
 	if os.Getenv("SWAGGER_ENABLED") == "true" {
