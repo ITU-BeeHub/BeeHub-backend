@@ -236,8 +236,6 @@ func (s *Service) ProfileService(person *models.Person) (models.PersonDTO, error
 	if err != nil {
 		log.Fatal(err)
 	}
-	bodyString := string(body)
-	fmt.Println(bodyString)
 
 	var info_response map[string]interface{}
 	err = json.Unmarshal(body, &info_response)
