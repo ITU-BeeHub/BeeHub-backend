@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const token_url = "https://kepler-beta.itu.edu.tr/ogrenci/auth/jwt"
+const token_url = "https://obs.itu.edu.tr/ogrenci/auth/jwt"
 
 func LoginService(email, password string) (string, error) {
 
@@ -29,7 +29,7 @@ func LoginService(email, password string) (string, error) {
 	}
 
 	// İlk GET isteği için headers tanımla
-	req, err := http.NewRequest("GET", "https://kepler-beta.itu.edu.tr", nil)
+	req, err := http.NewRequest("GET", "https://obs.itu.edu.tr", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

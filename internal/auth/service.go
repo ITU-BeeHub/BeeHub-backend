@@ -16,11 +16,11 @@ import (
 	"golang.org/x/net/html"
 )
 
-const token_url = "https://kepler-beta.itu.edu.tr/ogrenci/auth/jwt"
-const photo_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/OgrenciFotograf"
-const gpa_and_grade_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/AkademikDurum/759"
-const personal_info_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/KisiselBilgiler/"
-const transcript_url = "https://kepler-beta.itu.edu.tr/api/ogrenci/Belgeler/TranskriptIngilizceOnizleme"
+const token_url = "https://obs.itu.edu.tr/ogrenci/auth/jwt"
+const photo_url = "https://obs.itu.edu.tr/api/ogrenci/OgrenciFotograf"
+const gpa_and_grade_url = "https://obs.itu.edu.tr/api/ogrenci/AkademikDurum/759"
+const personal_info_url = "https://obs.itu.edu.tr/api/ogrenci/KisiselBilgiler"
+const transcript_url = "https://obs.itu.edu.tr/api/ogrenci/Belgeler/TranskriptIngilizceOnizleme"
 
 type Service struct {
 	personManager *pkg.PersonManager
@@ -44,7 +44,7 @@ func (s *Service) LoginService(email, password string) (string, error) {
 	}
 
 	// İlk GET isteği için headers tanımla
-	req, err := http.NewRequest("GET", "https://kepler-beta.itu.edu.tr", nil)
+	req, err := http.NewRequest("GET", "https://obs.itu.edu.tr", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -236,6 +236,8 @@ func (s *Service) ProfileService(person *models.Person) (models.PersonDTO, error
 	if err != nil {
 		log.Fatal(err)
 	}
+	bodyString := string(body)
+	fmt.Println(bodyString)
 
 	var info_response map[string]interface{}
 	err = json.Unmarshal(body, &info_response)

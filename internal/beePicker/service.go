@@ -20,7 +20,7 @@ const raw_repo_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-course
 const most_recent_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/most_recent.txt"
 const course_codes_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/course_codes.json"
 
-const kepler_picker_url = "https://kepler-beta.itu.edu.tr/api/ders-kayit/v21"
+const kepler_picker_url = "https://obs.itu.edu.tr/api/ders-kayit/v21"
 
 type Service struct {
 	personManager *pkg.PersonManager
@@ -212,8 +212,8 @@ func sendCourseRequests(client *resty.Client, courses []string, token string) ([
 	headers := map[string]string{
 		"accept":        "application/json, text/plain, */*",
 		"authorization": "Bearer  " + token,
-		"origin":        "https://kepler-beta.itu.edu.tr",
-		"referer":       "https://kepler-beta.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+		"origin":        "https://obs.itu.edu.tr",
+		"referer":       "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
 	}
 	payload := map[string]interface{}{
 		"ECRN": courses,    // Example CRNs to be added
