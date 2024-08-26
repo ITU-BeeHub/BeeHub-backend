@@ -196,7 +196,7 @@ func getNewestFolder() (string, error) {
 	return string(most_recent_file_name), nil
 }
 
-func (s *Service) PickService(courseCodes []string) (map[string][]map[string]interface{}, error) {
+func (s *Service) PickService(courseCodes []string) (map[string]map[string]interface{}, error) {
 	client := resty.New()
 
 	responses, err := sendCourseRequests(client, courseCodes, s.personManager.GetToken())
@@ -242,8 +242,10 @@ func sendCourseRequests(client *resty.Client, courses []string, token string) ([
 
 	return responses, nil
 }
-func mergePickResponses(responses []*resty.Response) (map[string][]map[string]interface{}, error) {
-	pickResults := make(map[string][]map[string]interface{})
+
+func mergePickResponses(responses []*resty.Response) (map[string]map[string]interface{}, error) {
+	pickResults := make(map[string]map[string]interface{})
+	errorCodes := utils.GetErrorCodes()
 
 	for _, resp := range responses {
 		if resp.StatusCode() != http.StatusOK {
@@ -261,12 +263,42 @@ func mergePickResponses(responses []*resty.Response) (map[string][]map[string]in
 
 		for _, ecrnResult := range result.EcrnResultList {
 			crn := ecrnResult["crn"].(string)
-			pickResults[crn] = append(pickResults[crn], ecrnResult)
+			statusCode := int(ecrnResult["statusCode"].(float64))
+			resultCode := ecrnResult["resultCode"].(string)
+
+			// Populate the resultData field using GetErrorCodes
+			ecrnResult["resultData"] = fmt.Sprintf(errorCodes[resultCode], crn)
+
+			// Check if the CRN is already in the map
+			if existingResult, exists := pickResults[crn]; exists {
+				// Keep the one with statusCode = 0 (success)
+				if existingStatusCode := int(existingResult["statusCode"].(float64)); existingStatusCode != 0 && statusCode == 0 {
+					pickResults[crn] = ecrnResult
+				}
+			} else {
+				// Add the CRN to the map
+				pickResults[crn] = ecrnResult
+			}
 		}
 
 		for _, scrnResult := range result.ScrnResultList {
 			crn := scrnResult["crn"].(string)
-			pickResults[crn] = append(pickResults[crn], scrnResult)
+			statusCode := int(scrnResult["statusCode"].(float64))
+			resultCode := scrnResult["resultCode"].(string)
+
+			// Populate the resultData field using GetErrorCodes
+			scrnResult["resultData"] = fmt.Sprintf(errorCodes[resultCode], crn)
+
+			// Check if the CRN is already in the map
+			if existingResult, exists := pickResults[crn]; exists {
+				// Keep the one with statusCode = 0 (success)
+				if existingStatusCode := int(existingResult["statusCode"].(float64)); existingStatusCode != 0 && statusCode == 0 {
+					pickResults[crn] = scrnResult
+				}
+			} else {
+				// Add the CRN to the map
+				pickResults[crn] = scrnResult
+			}
 		}
 	}
 
