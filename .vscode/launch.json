@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/addDropBot/"
+            "program": "${workspaceFolder}/cmd/beeHub/main.go",
         }
     ]
 }
