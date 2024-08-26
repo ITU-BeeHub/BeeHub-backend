@@ -21,6 +21,16 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
+// Define the backend version
+/*
+ * IMPORTANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * TODO:
+ * İleride bu Backend Version değeri bizim sunucumuzdan çekilmeli
+ * https:beehub/version gibi bir endpoint oluşturulmalı ve bu endpointten
+ *backend version değeri çekilmeli
+ */
+const BackendVersion = "Alpha"
+
 // MessageResponse represents a JSON response with a message
 type MessageResponse struct {
 	Message string `json:"message"`
@@ -53,14 +63,19 @@ func main() {
         MaxAge:           12 * 60 * 60, // 12 hours
     }))
 
-	
+	// Version check endpoint
+	// TODO:
+	// When we create our website, BackendVersion will be taken from the server
+	r.GET("/version", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"version": BackendVersion})
+	})
+
 	// Swagger handler
 	// if SWAGGER_ENABLED=true in .env, enable swagger
 	if os.Getenv("SWAGGER_ENABLED") == "true" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	} else {
 		fmt.Println("Swagger is disabled")
-
 	}
 
 	authService := auth.NewService(personManager)
@@ -69,7 +84,6 @@ func main() {
 	r.POST("/auth/login", authHandler.LoginHandler)
 
 	// beePicker routes
-
 	beePickerService := beepicker.NewService(personManager)
 	beePickerHandler := beepicker.NewHandler(beePickerService)
 
