@@ -6,7 +6,7 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-const apiURL = "https://kepler-beta.itu.edu.tr/api/ders-kayit/v21"
+const apiURL = "https://obs.itu.edu.tr/api/ders-kayit/v21"
 
 type Result struct {
 	CRN        string `json:"crn"`
@@ -23,8 +23,8 @@ func SendCourseRequests(courses []Course) (*Response, error) {
 	headers := map[string]string{
 		"accept":        "application/json, text/plain, */*",
 		"authorization": "Bearer  " + Token,
-		"origin":        "https://kepler-beta.itu.edu.tr",
-		"referer":       "https://kepler-beta.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+		"origin":        "https://obs.itu.edu.tr",
+		"referer":       "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
 	}
 
 	crns := []string{}
@@ -56,8 +56,8 @@ func SendCourseRequestsToCRNs(crns []string) (*Response, error) {
 	headers := map[string]string{
 		"accept":        "application/json, text/plain, */*",
 		"authorization": "Bearer  " + Token,
-		"origin":        "https://kepler-beta.itu.edu.tr",
-		"referer":       "https://kepler-beta.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+		"origin":        "https://obs.itu.edu.tr",
+		"referer":       "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
 	}
 
 	payload := map[string]interface{}{
