@@ -36,62 +36,9 @@ func (h *Handler) CourseHandler(c *gin.Context) {
 
 }
 
-type scheduleSaveRequest struct {
-	ScheduleName string `json:"scheduleName"`
-	ECRN         []int  `json:"ECRN"`
-	SCRN         []int  `json:"SCRN"`
-}
-
-// SelectHandler handles the request for selecting a course from the BeePicker.
-// @Tags BeePicker
-// @Summary Selects a course from the BeePicker.
-// @Accept json
-// @Produce json
-// @Param request body scheduleSaveRequest true "Request body containing the ECRN"
-// @Success 200 {object} string "Selection successful"
-// @Failure 400 {object} string "Bad request"
-// @Failure 500 {object} string "Internal server error"
-// @Router /beePicker/schedule [post]
-func (h *Handler) ScheduleSaveHandler(c *gin.Context) {
-
-	var req scheduleSaveRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Save the schedule
-	err := h.service.ScheduleSaveService(req.ScheduleName, req.ECRN, req.SCRN)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Schedule saved successfully"})
-}
-
-// SchedulesHandler handles the request for retrieving schedules from the BeePicker.
-// @Tags BeePicker
-// @Summary Retrieves schedules from the BeePicker.
-// @Produce json
-// @Router /beePicker/schedule [get]
-func (h *Handler) ScheduleHandler(c *gin.Context) {
-
-	// Get the schedules
-	data, err := h.service.SchedulesService()
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-	}
-
-	c.JSON(http.StatusOK, data)
-
-}
-
 type pickRequest struct {
-	CourseCodes []string `json:"courseCodes"`
+	CourseCodes []string `json:"courseCodes" binding:"required,min=1,max=15"`
 }
-
 
 // PickHandler handles the request for picking a course from the BeePicker.
 // @Tags BeePicker
@@ -104,15 +51,15 @@ type pickRequest struct {
 // @Failure 500 {object} string "Internal server error"
 // @Router /beePicker/pick [post]
 func (h *Handler) PickHandler(c *gin.Context) {
-
 	var req pickRequest
 
+	// JSON bind işlemi ve hata kontrolü
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-
+	// CRN array'ini service katmanına iletme
 	data, err := h.service.PickService(req.CourseCodes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -120,4 +67,3 @@ func (h *Handler) PickHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, data)
 }
-

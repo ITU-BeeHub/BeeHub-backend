@@ -50,54 +50,6 @@ func (s *Service) CourseService() ([]map[string]string, error) {
 	return data, nil
 }
 
-// Returns the schedules of the user
-func (s *Service) SchedulesService() (utils.ScheduleList, error) {
-
-	// Get the schedules
-	schedules, err := utils.GetUserSchedules()
-	if err != nil {
-		return utils.ScheduleList{}, err
-	}
-
-	return schedules, nil
-}
-
-// Saves the schedule of the user in the schedules.json file
-// If the schedule already exists, updates the schedule (overwrites the old one)
-// If the schedule does not exist, creates a new schedule
-func (s *Service) ScheduleSaveService(schedule_name string, ecrn []int, scrn []int) error {
-
-	// Get the schedules
-	schedules, err := utils.GetUserSchedules()
-	if err != nil {
-		return err
-	}
-
-	is_found := false
-	// Find the schedule with the same name
-	for i, schedule := range schedules.Schedules {
-		if schedule.Name == schedule_name {
-			// Update the schedule
-			schedules.Schedules[i].ECRN = ecrn
-			schedules.Schedules[i].SCRN = scrn
-			is_found = true
-			break
-		}
-	}
-	if !is_found {
-		// Create a new schedule
-		schedules.Schedules = append(schedules.Schedules, utils.Schedule{Name: schedule_name, ECRN: ecrn, SCRN: scrn})
-	}
-
-	// Save the schedules
-	err = utils.SaveUserSchedules(schedules)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string]string, error) {
 	// Merges all course jsons into one json and returns it as a slice of maps
 
