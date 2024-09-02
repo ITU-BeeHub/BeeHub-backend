@@ -16,10 +16,15 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+var (
+	cache          []map[string]string // Cache verisi
+	cacheTimestamp time.Time           // Cache zaman damgası
+	cacheMutex     sync.Mutex          // Cache erişimi için mutex
+)
+
 const raw_repo_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public"
 const most_recent_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/most_recent.txt"
 const course_codes_URL = "https://raw.githubusercontent.com/ITU-BeeHub/BeeHub-courseScraper/main/public/course_codes.json"
-
 const kepler_picker_url = "https://obs.itu.edu.tr/api/ders-kayit/v21"
 
 type Service struct {
@@ -31,7 +36,15 @@ func NewService(personManager *pkg.PersonManager) *Service {
 }
 
 func (s *Service) CourseService() ([]map[string]string, error) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
 
+	// Cache'in geçerliliğini kontrol et
+	if time.Since(cacheTimestamp) < 5*time.Minute && cache != nil {
+		return cache, nil
+	}
+
+	// Cache güncel değilse yeni veriyi çek
 	folder, err := getNewestFolder()
 	if err != nil {
 		return nil, errors.New("error getting newest folder")
@@ -55,11 +68,17 @@ func (s *Service) CourseService() ([]map[string]string, error) {
 		}
 		convertedData = append(convertedData, convertedItem)
 	}
+
+	// Veriyi cache'e kaydet ve zaman damgasını güncelle
+	cache = convertedData
+	cacheTimestamp = time.Now()
+
 	return convertedData, nil
 }
 
 func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string]interface{}, error) {
 	base_url := raw_repo_URL + "/" + newest_folder + "/"
+
 	var allCourses []map[string]interface{}
 
 	courseDataChan := make(chan []map[string]interface{})
@@ -70,6 +89,10 @@ func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string
 		go func(code string) {
 			defer wg.Done()
 			resp, err := http.Get(base_url + code + ".json")
+			if resp.StatusCode != http.StatusOK {
+				log.Printf("Failed to retrieve JSON for course code %s: %s", code, resp.Status)
+				return
+			}
 			if err != nil {
 				log.Println("Error getting course json:", err)
 				return
@@ -86,6 +109,7 @@ func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string
 			err = json.Unmarshal(body, &courses)
 			if err != nil {
 				log.Println("Error unmarshaling course json:", err)
+				log.Println("Faulty JSON:", string(body))
 				return
 			}
 
