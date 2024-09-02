@@ -47,30 +47,28 @@ func (s *Service) CourseService() ([]map[string]string, error) {
 		return nil, errors.New("error getting course data")
 	}
 
-	return data, nil
+	var convertedData []map[string]string
+	for _, item := range data {
+		convertedItem := make(map[string]string)
+		for key, value := range item {
+			convertedItem[key] = fmt.Sprintf("%v", value)
+		}
+		convertedData = append(convertedData, convertedItem)
+	}
+	return convertedData, nil
 }
 
-func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string]string, error) {
-	// Merges all course jsons into one json and returns it as a slice of maps
-
+func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string]interface{}, error) {
 	base_url := raw_repo_URL + "/" + newest_folder + "/"
+	var allCourses []map[string]interface{}
 
-	var allCourses []map[string]string
-
-	// Create a channel to receive the course data
-	courseDataChan := make(chan []map[string]string)
-
-	// Create a wait group to wait for all goroutines to finish
+	courseDataChan := make(chan []map[string]interface{})
 	var wg sync.WaitGroup
 
 	for _, course_code := range course_codes {
-
-		// Start a goroutine to fetch each course code information
 		wg.Add(1)
 		go func(code string) {
 			defer wg.Done()
-
-			// Get course json
 			resp, err := http.Get(base_url + code + ".json")
 			if err != nil {
 				log.Println("Error getting course json:", err)
@@ -84,7 +82,7 @@ func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string
 				return
 			}
 
-			var courses []map[string]string
+			var courses []map[string]interface{}
 			err = json.Unmarshal(body, &courses)
 			if err != nil {
 				log.Println("Error unmarshaling course json:", err)
@@ -95,13 +93,11 @@ func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string
 		}(course_code)
 	}
 
-	// Start a goroutine to close the channel when all goroutines are done
 	go func() {
 		wg.Wait()
 		close(courseDataChan)
 	}()
 
-	// Collect the course data from the channel
 	for courses := range courseDataChan {
 		allCourses = append(allCourses, courses...)
 	}
@@ -110,23 +106,27 @@ func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string
 }
 
 func getCourseCodes() ([]string, error) {
-	// Get course codes
 	resp, err := http.Get(course_codes_URL)
 	if err != nil {
 		return []string{}, err
 	}
 	defer resp.Body.Close()
 
-	// Append json elements to the course_codes slice
-	course_codesBytes, err := io.ReadAll(resp.Body)
+	var course_codes_response []map[string]interface{}
+	course_codes_bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return []string{}, err
+	}
+	err = json.Unmarshal(course_codes_bytes, &course_codes_response)
 	if err != nil {
 		return []string{}, err
 	}
 
 	var course_codes []string
-	err = json.Unmarshal(course_codesBytes, &course_codes)
-	if err != nil {
-		return []string{}, err
+	for _, course := range course_codes_response {
+		if code, ok := course["dersBransKodu"].(string); ok {
+			course_codes = append(course_codes, code)
+		}
 	}
 
 	return course_codes, nil
