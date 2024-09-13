@@ -195,7 +195,7 @@ func sendCourseRequests(client *resty.Client, courses []string, token string) ([
 		"ECRN": courses,    // Example CRNs to be added
 		"SCRN": []string{}, // Example CRNs to be deleted
 	}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		resp, err := client.R().
 			SetHeaders(headers).
 			SetBody(payload).
@@ -209,7 +209,7 @@ func sendCourseRequests(client *resty.Client, courses []string, token string) ([
 		fmt.Println()
 		fmt.Println(responses)
 		// Saniyede bir istek göndermek için bekleme
-		time.Sleep(1 * time.Second)
+		time.Sleep(3100 * time.Millisecond)
 	}
 
 	if len(errors) > 0 {
