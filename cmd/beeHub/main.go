@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -21,57 +23,78 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// Define the backend version
-/*
- * IMPORTANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * TODO:
- * İleride bu Backend Version değeri bizim sunucumuzdan çekilmeli
- * https:beehub/version gibi bir endpoint oluşturulmalı ve bu endpointten
- *backend version değeri çekilmeli
- */
-const BackendVersion = "Alpha"
+// Struct to parse the response from the beehubapp.com/version endpoint
+type VersionResponse struct {
+	DownloadURL string `json:"download_url"`
+	Version     string `json:"version"`
+}
+
+// Fallback backend version in case fetching from beehubapp.com fails
+var BackendVersion = "Alpha"
 
 // MessageResponse represents a JSON response with a message
 type MessageResponse struct {
 	Message string `json:"message"`
 }
 
-// @title BeeHub Ders Seçim Botu API
-// @version 1.0
-// @description Bu, BeeHub Ders Seçim Botu için API dokümantasyonudur.
+// Function to fetch the latest backend version from beehubapp.com
+func fetchBackendVersion() {
+	resp, err := http.Get("https://beehubapp.com/version")
+	if err != nil {
+		fmt.Printf("Failed to fetch backend version: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
 
-// @host localhost:8080
-// @BasePath /
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Received non-OK HTTP status: %d\n", resp.StatusCode)
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Failed to read response body: %v\n", err)
+		return
+	}
+
+	var versionResp VersionResponse
+	if err := json.Unmarshal(body, &versionResp); err != nil {
+		fmt.Printf("Failed to parse version response: %v\n", err)
+		return
+	}
+
+	// Set the backend version
+	BackendVersion = versionResp.Version
+	fmt.Printf("Fetched backend version: %s\n", BackendVersion)
+}
 
 func main() {
+	// Fetch the backend version on startup
+	fetchBackendVersion()
 
 	personManager := pkg.NewPersonManager()
-
 	person := &models.Person{}
 	personManager.UpdatePerson(person)
 	utils.LoadEnvVariables()
 
 	r := gin.Default()
 
-    // CORS configuration
-    r.Use(cors.New(cors.Config{
-        AllowOrigins:     []string{"http://localhost:5173"}, // Adjust this to your frontend's URL
-        AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-        AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-        ExposeHeaders:    []string{"Content-Length"},
-        AllowCredentials: true,
-        MaxAge:           12 * 60 * 60, // 12 hours
-    }))
+	// CORS configuration
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"}, // Adjust this to your frontend's URL
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * 60 * 60, // 12 hours
+	}))
 
 	// Version check endpoint
-	// TODO:
-	// When we create our website, BackendVersion will be taken from the server
 	r.GET("/version", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"version": BackendVersion})
 	})
 
 	// Swagger handler
-	// if SWAGGER_ENABLED=true in .env, enable swagger
 	if os.Getenv("SWAGGER_ENABLED") == "true" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	} else {
@@ -88,20 +111,18 @@ func main() {
 	beePickerHandler := beepicker.NewHandler(beePickerService)
 
 	r.GET("/beePicker/courses", beePickerHandler.CourseHandler)
+
 	// Protected routes
 	protected := r.Group("/")
 	protected.Use(auth.AuthMiddleware(authService))
 	{
-		// auth routes
 		protected.GET("/auth/profile", authHandler.ProfileHandler)
-
-		// beePicker routes
-
 		protected.POST("/beePicker/pick", beePickerHandler.PickHandler)
 	}
 
 	r.GET("/start-service", startService)
 	r.GET("/stop-service", stopService)
+
 	r.Run(":8080")
 }
 
@@ -141,7 +162,7 @@ func stopService(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error stopping service: %v", err)})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "Service stopped and set to manuel"})
+		c.JSON(http.StatusOK, gin.H{"message": "Service stopped and set to manual"})
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unsupported OS"})
 	}
