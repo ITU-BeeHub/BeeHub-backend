@@ -39,7 +39,7 @@ type MessageResponse struct {
 
 // Function to fetch the latest backend version from beehubapp.com
 func fetchBackendVersion() {
-	resp, err := http.Get("https://beehubapp.com/version")
+	resp, err := http.Get("https://beehubapp.com/api/version")
 	if err != nil {
 		fmt.Printf("Failed to fetch backend version: %v\n", err)
 		return
