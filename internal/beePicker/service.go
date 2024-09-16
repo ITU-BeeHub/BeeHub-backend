@@ -77,57 +77,65 @@ func (s *Service) CourseService() ([]map[string]string, error) {
 }
 
 func MergeCourseJsons(course_codes []string, newest_folder string) ([]map[string]interface{}, error) {
-	base_url := raw_repo_URL + "/" + newest_folder + "/"
+    base_url := raw_repo_URL + "/" + newest_folder + "/"
 
-	var allCourses []map[string]interface{}
+    var allCourses []map[string]interface{}
 
-	courseDataChan := make(chan []map[string]interface{})
-	var wg sync.WaitGroup
+    courseDataChan := make(chan []map[string]interface{})
+    var wg sync.WaitGroup
 
-	for _, course_code := range course_codes {
-		wg.Add(1)
-		go func(code string) {
-			defer wg.Done()
-			resp, err := http.Get(base_url + code + ".json")
-			if resp.StatusCode != http.StatusOK {
-				log.Printf("Failed to retrieve JSON for course code %s: %s", code, resp.Status)
-				return
-			}
-			if err != nil {
-				log.Println("Error getting course json:", err)
-				return
-			}
-			defer resp.Body.Close()
+    for _, course_code := range course_codes {
+        wg.Add(1)
+        go func(code string) {
+            defer wg.Done()
+            resp, err := http.Get(base_url + code + ".json")
+            if resp.StatusCode != http.StatusOK {
+                log.Printf("Failed to retrieve JSON for course code %s: %s", code, resp.Status)
+                return
+            }
+            if err != nil {
+                log.Println("Error getting course json:", err)
+                return
+            }
+            defer resp.Body.Close()
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				log.Println("Error reading course json:", err)
-				return
-			}
+            body, err := io.ReadAll(resp.Body)
+            if err != nil {
+                log.Println("Error reading course json:", err)
+                return
+            }
 
-			var courses []map[string]interface{}
-			err = json.Unmarshal(body, &courses)
-			if err != nil {
-				log.Println("Error unmarshaling course json:", err)
-				log.Println("Faulty JSON:", string(body))
-				return
-			}
+            // Create a struct to capture the new response format
+            var result struct {
+                DersProgramList []map[string]interface{} `json:"dersProgramList"`
+            }
 
-			courseDataChan <- courses
-		}(course_code)
-	}
+            // Unmarshal into the new struct to access the list
+            err = json.Unmarshal(body, &result)
+            if err != nil {
+                log.Println("Error unmarshaling course json:", err)
+                log.Println("Faulty JSON:", string(body))
+                return
+            }
 
-	go func() {
-		wg.Wait()
-		close(courseDataChan)
-	}()
+            // Send the array from the "dersProgramList" to the channel
+            courseDataChan <- result.DersProgramList
+        }(course_code)
+    }
 
-	for courses := range courseDataChan {
-		allCourses = append(allCourses, courses...)
-	}
+    go func() {
+        wg.Wait()
+        close(courseDataChan)
+    }()
 
-	return allCourses, nil
+    // Collect all the courses from the channel
+    for courses := range courseDataChan {
+        allCourses = append(allCourses, courses...)
+    }
+
+    return allCourses, nil
 }
+
 
 func getCourseCodes() ([]string, error) {
 	resp, err := http.Get(course_codes_URL)
