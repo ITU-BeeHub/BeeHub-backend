@@ -12,6 +12,7 @@ import (
 
 	"github.com/ITU-BeeHub/BeeHub-backend/pkg"
 	utils "github.com/ITU-BeeHub/BeeHub-backend/pkg/utils"
+	"github.com/gin-gonic/gin"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -180,7 +181,7 @@ func getNewestFolder() (string, error) {
 	return string(most_recent_file_name), nil
 }
 
-func (s *Service) PickService(courses []CourseRequest) (map[string]map[string]interface{}, error) {
+func (s *Service) PickService(courses []CourseRequest, c *gin.Context) error {
     client := resty.New()
     token := s.personManager.GetToken()
     pickResults := make(map[string]map[string]interface{})
@@ -219,15 +220,24 @@ func (s *Service) PickService(courses []CourseRequest) (map[string]map[string]in
         resp, err := sendCourseRequestBatch(client, currentBatchCRNs, token)
         if err != nil {
             log.Printf("Error sending batch request: %v", err)
-            return nil, err
+            return err
         }
 
         // Parse response
         result, err := parsePickResponse(resp)
         if err != nil {
             log.Printf("Error parsing pick response: %v", err)
-            return nil, err
+            return err
         }
+
+		// Stream the response to the client (SSE)
+		for crn, res := range result {
+			pickResults := map[string]interface{}{"crn": crn, "result": res}
+			jsonData, _ := json.Marshal(pickResults)
+			c.Writer.Write(jsonData)
+			c.Writer.Write([]byte("\n"))
+		}
+		c.Writer.Flush()
 
         // Process results
         nextQueue := []CourseRequest{} // Queue for the next batch
@@ -281,7 +291,7 @@ func (s *Service) PickService(courses []CourseRequest) (map[string]map[string]in
         time.Sleep(3100 * time.Millisecond)
     }
 
-    return pickResults, nil
+    return nil
 }
 
 
@@ -332,67 +342,5 @@ func parsePickResponse(resp *resty.Response) (map[string]map[string]interface{},
 	  pickResults[crn] = ecrnResult
 	}
   
-	return pickResults, nil
-}
-
-func mergePickResponses(responses []*resty.Response) (map[string]map[string]interface{}, error) {
-	pickResults := make(map[string]map[string]interface{})
-	errorCodes := utils.GetErrorCodes()
-
-	for _, resp := range responses {
-		if resp.StatusCode() != http.StatusOK {
-			return nil, fmt.Errorf("non-200 status code received: %d", resp.StatusCode())
-		}
-
-		var result struct {
-			EcrnResultList []map[string]interface{} `json:"ecrnResultList"`
-			ScrnResultList []map[string]interface{} `json:"scrnResultList"`
-		}
-
-		if err := json.Unmarshal(resp.Body(), &result); err != nil {
-			return nil, fmt.Errorf("error unmarshaling response: %v", err)
-		}
-
-		for _, ecrnResult := range result.EcrnResultList {
-			crn := ecrnResult["crn"].(string)
-			statusCode := int(ecrnResult["statusCode"].(float64))
-			resultCode := ecrnResult["resultCode"].(string)
-
-			// Populate the resultData field using GetErrorCodes
-			ecrnResult["resultData"] = fmt.Sprintf(errorCodes[resultCode], crn)
-
-			// Check if the CRN is already in the map
-			if existingResult, exists := pickResults[crn]; exists {
-				// Keep the one with statusCode = 0 (success)
-				if existingStatusCode := int(existingResult["statusCode"].(float64)); existingStatusCode != 0 && statusCode == 0 {
-					pickResults[crn] = ecrnResult
-				}
-			} else {
-				// Add the CRN to the map
-				pickResults[crn] = ecrnResult
-			}
-		}
-
-		for _, scrnResult := range result.ScrnResultList {
-			crn := scrnResult["crn"].(string)
-			statusCode := int(scrnResult["statusCode"].(float64))
-			resultCode := scrnResult["resultCode"].(string)
-
-			// Populate the resultData field using GetErrorCodes
-			scrnResult["resultData"] = fmt.Sprintf(errorCodes[resultCode], crn)
-
-			// Check if the CRN is already in the map
-			if existingResult, exists := pickResults[crn]; exists {
-				// Keep the one with statusCode = 0 (success)
-				if existingStatusCode := int(existingResult["statusCode"].(float64)); existingStatusCode != 0 && statusCode == 0 {
-					pickResults[crn] = scrnResult
-				}
-			} else {
-				// Add the CRN to the map
-				pickResults[crn] = scrnResult
-			}
-		}
-	}
-
 	return pickResults, nil
 }
