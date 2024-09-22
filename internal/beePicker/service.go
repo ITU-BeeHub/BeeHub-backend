@@ -180,51 +180,159 @@ func getNewestFolder() (string, error) {
 	return string(most_recent_file_name), nil
 }
 
-func (s *Service) PickService(courseCodes []string) (map[string]map[string]interface{}, error) {
-	client := resty.New()
+func (s *Service) PickService(courses []CourseRequest) (map[string]map[string]interface{}, error) {
+    client := resty.New()
+    token := s.personManager.GetToken()
+    pickResults := make(map[string]map[string]interface{})
 
-	responses, err := sendCourseRequests(client, courseCodes, s.personManager.GetToken())
-	if err != nil {
-		return nil, fmt.Errorf("error sending course requests: %v", err)
-	}
-	return mergePickResponses(responses)
+    // Flag to track whether any course has been successfully picked
+    anySuccess := false
+
+    // Initialize a queue with the top-level courses
+    queue := []CourseRequest{}
+    queue = append(queue, courses...)
+
+    // Map to keep track of courses that have been processed
+    processedCRNs := make(map[string]bool)
+
+    // Retry counter
+    retryCount := 0
+
+    for len(queue) > 0 {
+        // Extract CRNs for the current batch
+        var currentBatchCRNs []string
+        crnToCourseMap := make(map[string]CourseRequest)
+
+        for _, course := range queue {
+            if !processedCRNs[course.CRN] {
+                currentBatchCRNs = append(currentBatchCRNs, course.CRN)
+                crnToCourseMap[course.CRN] = course
+                processedCRNs[course.CRN] = true
+            }
+        }
+
+        if len(currentBatchCRNs) == 0 {
+            break // No new CRNs to process
+        }
+
+        // Send batch request
+        resp, err := sendCourseRequestBatch(client, currentBatchCRNs, token)
+        if err != nil {
+            log.Printf("Error sending batch request: %v", err)
+            return nil, err
+        }
+
+        // Parse response
+        result, err := parsePickResponse(resp)
+        if err != nil {
+            log.Printf("Error parsing pick response: %v", err)
+            return nil, err
+        }
+
+        // Process results
+        nextQueue := []CourseRequest{} // Queue for the next batch
+        retryNeeded := false
+
+        for crn, res := range result {
+            pickResults[crn] = res
+            statusCode := int(res["statusCode"].(float64))
+            resultCode := res["resultCode"].(string)
+
+            course := crnToCourseMap[crn]
+
+            // If course was successfully picked
+            if statusCode == 0 {
+                anySuccess = true // Mark that at least one course was successfully picked
+            }
+
+            // If pick failed with "NULLParam-CheckOgrenciKayitZamaniKontrolu"
+			// we will retry the same CRN in the next batch
+			// This block will execute if user clicked button a bit early.
+            if statusCode != 0 && resultCode == "NULLParam-CheckOgrenciKayitZamaniKontrolu" {
+                // Retry the same CRN in the next batch if no course has been successfully taken yet
+                if !anySuccess && retryCount < 3 {
+                    nextQueue = append(nextQueue, course)
+                    retryNeeded = true
+					processedCRNs[course.CRN] = false // Mark the CRN as not processed as it will be tried again.
+                } else {
+                    // Proceed to reserves if any
+                    nextQueue = append(nextQueue, course.Reserves...)
+                }
+            } else if statusCode != 0 {
+                // For other failures, proceed to reserves if any
+                nextQueue = append(nextQueue, course.Reserves...)
+            }
+        }
+
+        // If we retried and anySuccess is still false, increment retry count
+        if retryNeeded && !anySuccess {
+            retryCount++
+            // If we reached maximum retry limit, stop retrying
+            if retryCount >= 3 {
+                log.Printf("Reached maximum retry attempts with no success.")
+                break
+            }
+        }
+
+        // Prepare the queue for the next batch
+        queue = nextQueue
+
+        // Rate limiting: Sleep for 3.1 seconds before the next batch
+        time.Sleep(3100 * time.Millisecond)
+    }
+
+    return pickResults, nil
 }
 
-func sendCourseRequests(client *resty.Client, courses []string, token string) ([]*resty.Response, error) {
-	var responses []*resty.Response
-	var errors []error
+
+
+func sendCourseRequestBatch(client *resty.Client, crns []string, token string) (*resty.Response, error) {
 	headers := map[string]string{
-		"accept":        "application/json, text/plain, */*",
-		"authorization": "Bearer  " + token,
-		"origin":        "https://obs.itu.edu.tr",
-		"referer":       "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+	  "accept":        "application/json, text/plain, */*",
+	  "authorization": "Bearer " + token,
+	  "origin":        "https://obs.itu.edu.tr",
+	  "referer":       "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
 	}
+  
 	payload := map[string]interface{}{
-		"ECRN": courses,    // Example CRNs to be added
-		"SCRN": []string{}, // Example CRNs to be deleted
+	  "ECRN": crns,
+	  "SCRN": []string{},
 	}
-	for i := 0; i < 5; i++ {
-		resp, err := client.R().
-			SetHeaders(headers).
-			SetBody(payload).
-			Post(kepler_picker_url)
+  
+	resp, err := client.R().
+	  SetHeaders(headers).
+	  SetBody(payload).
+	  Post(kepler_picker_url)
+  
+	return resp, err
+}
 
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-		responses = append(responses, resp)
-		fmt.Println()
-		fmt.Println(responses)
-		// Saniyede bir istek göndermek için bekleme
-		time.Sleep(3100 * time.Millisecond)
+
+func parsePickResponse(resp *resty.Response) (map[string]map[string]interface{}, error) {
+	if resp.StatusCode() != http.StatusOK {
+	  return nil, fmt.Errorf("non-200 status code received: %d", resp.StatusCode())
 	}
-
-	if len(errors) > 0 {
-		return nil, fmt.Errorf("errors occurred while sending course requests: %v", errors)
+  
+	var result struct {
+	  EcrnResultList []map[string]interface{} `json:"ecrnResultList"`
+	  ScrnResultList []map[string]interface{} `json:"scrnResultList"`
 	}
-
-	return responses, nil
+  
+	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+	  return nil, fmt.Errorf("error unmarshaling response: %v", err)
+	}
+  
+	pickResults := make(map[string]map[string]interface{})
+	errorCodes := utils.GetErrorCodes()
+  
+	for _, ecrnResult := range result.EcrnResultList {
+	  crn := ecrnResult["crn"].(string)
+	  resultCode := ecrnResult["resultCode"].(string)
+	  ecrnResult["resultData"] = fmt.Sprintf(errorCodes[resultCode], crn)
+	  pickResults[crn] = ecrnResult
+	}
+  
+	return pickResults, nil
 }
 
 func mergePickResponses(responses []*resty.Response) (map[string]map[string]interface{}, error) {

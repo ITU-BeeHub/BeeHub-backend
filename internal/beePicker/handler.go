@@ -36,9 +36,15 @@ func (h *Handler) CourseHandler(c *gin.Context) {
 
 }
 
-type pickRequest struct {
-	CourseCodes []string `json:"courseCodes" binding:"required,min=1,max=15"`
-}
+type CourseRequest struct {
+	CRN     string          `json:"crn" binding:"required"`
+	Reserves []CourseRequest `json:"reserves,omitempty"`
+  }
+  
+  type pickRequest struct {
+	Courses []CourseRequest `json:"courses" binding:"required,min=1"`
+  }  
+
 
 // PickHandler handles the request for picking a course from the BeePicker.
 // @Tags BeePicker
@@ -52,18 +58,19 @@ type pickRequest struct {
 // @Router /beePicker/pick [post]
 func (h *Handler) PickHandler(c *gin.Context) {
 	var req pickRequest
-
-	// JSON bind işlemi ve hata kontrolü
+  
+	// Bind JSON and handle errors
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	  c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	  return
 	}
-
-	// CRN array'ini service katmanına iletme
-	data, err := h.service.PickService(req.CourseCodes)
+  
+	// Pass the courses to the service layer
+	data, err := h.service.PickService(req.Courses)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	  c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	  return
 	}
 	c.JSON(http.StatusOK, data)
-}
+  }
+  
