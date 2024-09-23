@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"time"
 
 	_ "github.com/ITU-BeeHub/BeeHub-backend/docs"
 	auth "github.com/ITU-BeeHub/BeeHub-backend/internal/auth"
@@ -37,35 +38,45 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
-// Function to fetch the latest backend version from beehubapp.com
+// Non-blocking fetch with retry logic
 func fetchBackendVersion() {
-	resp, err := http.Get("https://beehubapp.com/api/version")
-	if err != nil {
-		fmt.Printf("Failed to fetch backend version: %v\n", err)
-		return
-	}
-	defer resp.Body.Close()
+	go func() {
+		for {
+			fmt.Println("Attempting to fetch backend version...")
+			resp, err := http.Get("https://beehubapp.com/api/version")
+			if err != nil {
+				fmt.Printf("Failed to fetch backend version: %v\n", err)
+				time.Sleep(5 * time.Second) // Wait 5 seconds before retrying
+				continue
+			}
+			defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Received non-OK HTTP status: %d\n", resp.StatusCode)
-		return
-	}
+			if resp.StatusCode != http.StatusOK {
+				fmt.Printf("Received non-OK HTTP status: %d\n", resp.StatusCode)
+				time.Sleep(5 * time.Second)
+				continue
+			}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Failed to read response body: %v\n", err)
-		return
-	}
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Printf("Failed to read response body: %v\n", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
 
-	var versionResp VersionResponse
-	if err := json.Unmarshal(body, &versionResp); err != nil {
-		fmt.Printf("Failed to parse version response: %v\n", err)
-		return
-	}
+			var versionResp VersionResponse
+			if err := json.Unmarshal(body, &versionResp); err != nil {
+				fmt.Printf("Failed to parse version response: %v\n", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
 
-	// Set the backend version
-	BackendVersion = versionResp.Version
-	fmt.Printf("Fetched backend version: %s\n", BackendVersion)
+			// Successfully fetched the backend version
+			BackendVersion = versionResp.Version
+			fmt.Printf("Fetched backend version: %s\n", BackendVersion)
+			return
+		}
+	}()
 }
 
 func main() {
