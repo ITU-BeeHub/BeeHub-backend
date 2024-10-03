@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	godotenv "github.com/joho/godotenv"
 )
@@ -41,6 +42,11 @@ func GetErrorCodes() map[string]string {
 		"ERRLoad":       "This service is temporarily unavailable.",
 		"NULLParam-CheckOgrenciKayitZamaniKontrolu": "The course with CRN %s cannot be added due to 'Enrollment Time Hold'.",
 	}
+}
+
+// Helper function to check if a string contains given substring
+func ContainsPlaceholder(message string, substring string) bool {
+	return strings.Contains(message, substring)
 }
 
 

@@ -320,27 +320,44 @@ func sendCourseRequestBatch(client *resty.Client, crns []string, token string) (
 
 func parsePickResponse(resp *resty.Response) (map[string]map[string]interface{}, error) {
 	if resp.StatusCode() != http.StatusOK {
-	  return nil, fmt.Errorf("non-200 status code received: %d", resp.StatusCode())
+		return nil, fmt.Errorf("non-200 status code received: %d", resp.StatusCode())
 	}
-  
+
 	var result struct {
-	  EcrnResultList []map[string]interface{} `json:"ecrnResultList"`
-	  ScrnResultList []map[string]interface{} `json:"scrnResultList"`
+		EcrnResultList []map[string]interface{} `json:"ecrnResultList"`
+		ScrnResultList []map[string]interface{} `json:"scrnResultList"`
 	}
-  
+
 	if err := json.Unmarshal(resp.Body(), &result); err != nil {
-	  return nil, fmt.Errorf("error unmarshaling response: %v", err)
+		return nil, fmt.Errorf("error unmarshaling response: %v", err)
 	}
-  
+
 	pickResults := make(map[string]map[string]interface{})
 	errorCodes := utils.GetErrorCodes()
-  
+
 	for _, ecrnResult := range result.EcrnResultList {
-	  crn := ecrnResult["crn"].(string)
-	  resultCode := ecrnResult["resultCode"].(string)
-	  ecrnResult["resultData"] = fmt.Sprintf(errorCodes[resultCode], crn)
-	  pickResults[crn] = ecrnResult
+		crn := ecrnResult["crn"].(string)
+		resultCode := ecrnResult["resultCode"].(string)
+		statusCode := ecrnResult["statusCode"].(float64) // Assuming statusCode is a float64
+
+		// Check if resultCode exists in errorCodes, otherwise fall back to successResult if statusCode is 0
+		if errorCodes[resultCode] == "" {
+			if statusCode == 0 {
+				ecrnResult["resultData"] = fmt.Sprintf(errorCodes["successResult"], crn)
+			} else {
+				ecrnResult["resultData"] = fmt.Sprintf(errorCodes["VAL01"], crn)
+			}
+		} else {
+            // Check if error message contains a %s for crn substitution
+            if utils.ContainsPlaceholder(errorCodes[resultCode], "%s") {
+                ecrnResult["resultData"] = fmt.Sprintf(errorCodes[resultCode], crn)
+            } else {
+                ecrnResult["resultData"] = errorCodes[resultCode]
+            }
+		}
+
+		pickResults[crn] = ecrnResult
 	}
-  
+
 	return pickResults, nil
 }
