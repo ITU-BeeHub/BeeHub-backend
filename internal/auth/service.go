@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -16,99 +15,239 @@ import (
 	"golang.org/x/net/html"
 )
 
-const token_url = "https://obs.itu.edu.tr/ogrenci/auth/jwt"
-const photo_url = "https://obs.itu.edu.tr/api/ogrenci/OgrenciFotograf"
-const gpa_and_grade_url = "https://obs.itu.edu.tr/api/ogrenci/AkademikDurum/759"
-const personal_info_url = "https://obs.itu.edu.tr/api/ogrenci/KisiselBilgiler"
-const transcript_url = "https://obs.itu.edu.tr/api/ogrenci/Belgeler/TranskriptIngilizceOnizleme"
+type URLs struct {
+	Token        string
+	Photo        string
+	GpaAndGrade  string
+	PersonalInfo string
+	Transcript   string
+	BaseURL      string
+}
+
+var apiURLs = URLs{
+	Token:        "https://obs.itu.edu.tr/ogrenci/auth/jwt",
+	Photo:        "https://obs.itu.edu.tr/api/ogrenci/OgrenciFotograf",
+	GpaAndGrade:  "https://obs.itu.edu.tr/api/ogrenci/AkademikDurum/759",
+	PersonalInfo: "https://obs.itu.edu.tr/api/ogrenci/KisiselBilgiler",
+	Transcript:   "https://obs.itu.edu.tr/api/ogrenci/Belgeler/TranskriptIngilizceOnizleme",
+	BaseURL:      "https://obs.itu.edu.tr",
+}
 
 type Service struct {
 	personManager *pkg.PersonManager
+	client        *http.Client
 }
 
 func NewService(personManager *pkg.PersonManager) *Service {
-	return &Service{personManager: personManager}
+	jar, _ := cookiejar.New(nil)
+	return &Service{
+		personManager: personManager,
+		client:        &http.Client{Jar: jar},
+	}
+}
+
+func (s *Service) makeRequest(method, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "BeeHub")
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making request: %w", err)
+	}
+
+	return resp, nil
+}
+
+// Identity structure to hold student identity information
+type Identity struct {
+	ID         string
+	Department string
+	StudentNo  string
+	Status     string
+	ReturnURL  string
 }
 
 func (s *Service) LoginService(email, password string) (string, error) {
-
-	// Cookie jar oluştur
-	jar, err := cookiejar.New(nil)
+	// Initial GET request to get the login page
+	resp, err := s.makeRequest("GET", apiURLs.BaseURL, nil, nil)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	// HTTP client oluştur ve cookie jar ekle
-	client := &http.Client{
-		Jar: jar,
-	}
-
-	// İlk GET isteği için headers tanımla
-	req, err := http.NewRequest("GET", "https://obs.itu.edu.tr", nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Set("User-Agent", "BeeHub")
-	// İstek gönder
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	// Yönlendirme URL'sini bul
-	if len(resp.Request.Response.Request.URL.String()) == 0 {
-		fmt.Println("No redirect found")
-	}
 	loginURL := resp.Request.Response.Request.URL.String()
 
-	// İlk GET isteği için headers tanımla
-	req, err = http.NewRequest("GET", loginURL, nil)
+	// Get login form
+	resp, err = s.makeRequest("GET", loginURL, nil, nil)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	// İstek gönder
-	resp, err = client.Do(req)
-	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	// HTML'i ayrıştır
-	doc, err := html.Parse(resp.Body)
+	formData, err := extractFormData(resp.Body, email, password)
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("error extracting form data: %w", err)
 	}
 
-	// HTML'den form verilerini çıkar
-	var viewstate, viewstategenerator, eventvalidation string
+	// Login POST request
+	headers := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+	resp, err = s.makeRequest("POST", loginURL, strings.NewReader(formData.Encode()), headers)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	// Check if we got identity selection page
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading response body: %w", err)
+	}
+
+	// If we have identity selection page
+	if isIdentitySelectionPage(body) {
+		identity, err := extractActiveIdentity(body)
+		if err != nil {
+			return "", fmt.Errorf("error extracting identity: %w", err)
+		}
+
+		// Make request to set identity
+		identityURL := fmt.Sprintf("/login/SetIdentity?id=%s&returnURL=%s&yetkiAnahtari=ogrenci&ogrNo=%s",
+			identity.ID, identity.ReturnURL, identity.StudentNo)
+
+		resp, err = s.makeRequest("GET", apiURLs.BaseURL+identityURL, nil, nil)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+	}
+
+	// Get JWT token
+	resp, err = s.makeRequest("GET", apiURLs.Token, nil, nil)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	tokenBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading token body: %w", err)
+	}
+
+	if !isLoggedIn(tokenBody) {
+		return "", fmt.Errorf("login failed")
+	}
+
+	token := string(tokenBody)
+	s.updatePersonInfo(email, password, token)
+	return token, nil
+}
+
+func (s *Service) ProfileService(person *models.Person) (models.PersonDTO, error) {
+	token := "Bearer " + s.personManager.GetToken()
+	headers := map[string]string{"Authorization": token}
+
+	// Get personal info
+	if err := s.fetchPersonalInfo(person, headers); err != nil {
+		return models.PersonDTO{}, err
+	}
+
+	// Get photo
+	if err := s.fetchPhoto(person, headers); err != nil {
+		return models.PersonDTO{}, err
+	}
+
+	// Get academic info
+	if err := s.fetchAcademicInfo(person, headers); err != nil {
+		return models.PersonDTO{}, err
+	}
+
+	s.personManager.UpdatePerson(person)
+	return models.ToPersonDTO(*person), nil
+}
+
+func (s *Service) fetchPersonalInfo(person *models.Person, headers map[string]string) error {
+	resp, err := s.makeRequest("GET", apiURLs.PersonalInfo, nil, headers)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var infoResponse map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&infoResponse); err != nil {
+		return err
+	}
+
+	if kisiselBilgiler, ok := infoResponse["kisiselBilgiler"].(map[string]interface{}); ok {
+		updatePersonFromInfo(person, kisiselBilgiler)
+	}
+	return nil
+}
+
+func (s *Service) fetchPhoto(person *models.Person, headers map[string]string) error {
+	resp, err := s.makeRequest("GET", apiURLs.Photo, nil, headers)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var photoResponse map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&photoResponse); err != nil {
+		return err
+	}
+
+	if photoBase64, ok := photoResponse["base64Fotograf"].(string); ok {
+		person.Photo_base64 = photoBase64
+	}
+	return nil
+}
+
+func (s *Service) fetchAcademicInfo(person *models.Person, headers map[string]string) error {
+	resp, err := s.makeRequest("GET", apiURLs.GpaAndGrade, nil, headers)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var classResponse map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&classResponse); err != nil {
+		return err
+	}
+
+	if academicInfo, ok := classResponse["akademikDurum"].(map[string]interface{}); ok {
+		updatePersonAcademicInfo(person, academicInfo)
+	}
+	return nil
+}
+
+// Helper functions
+func extractFormData(body io.Reader, email, password string) (url.Values, error) {
+	doc, err := html.Parse(body)
+	if err != nil {
+		return nil, err
+	}
+
+	formFields := map[string]string{}
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "input" {
+			name, value := "", ""
 			for _, attr := range n.Attr {
 				if attr.Key == "name" {
-					switch attr.Val {
-					case "__VIEWSTATE":
-						for _, a := range n.Attr {
-							if a.Key == "value" {
-								viewstate = a.Val
-							}
-						}
-					case "__VIEWSTATEGENERATOR":
-						for _, a := range n.Attr {
-							if a.Key == "value" {
-								viewstategenerator = a.Val
-							}
-						}
-					case "__EVENTVALIDATION":
-						for _, a := range n.Attr {
-							if a.Key == "value" {
-								eventvalidation = a.Val
-							}
-						}
-					}
+					name = attr.Val
 				}
+				if attr.Key == "value" {
+					value = attr.Val
+				}
+			}
+			if name != "" {
+				formFields[name] = value
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -117,80 +256,62 @@ func (s *Service) LoginService(email, password string) (string, error) {
 	}
 	f(doc)
 
-	// Form verilerini ve POST isteği için headers tanımla
-	formData := url.Values{
+	return url.Values{
+		"__VIEWSTATE":                          {formFields["__VIEWSTATE"]},
+		"__VIEWSTATEGENERATOR":                 {formFields["__VIEWSTATEGENERATOR"]},
+		"__EVENTVALIDATION":                    {formFields["__EVENTVALIDATION"]},
 		"__EVENTTARGET":                        {""},
 		"__EVENTARGUMENT":                      {""},
-		"__VIEWSTATE":                          {viewstate},
-		"__VIEWSTATEGENERATOR":                 {viewstategenerator},
-		"__EVENTVALIDATION":                    {eventvalidation},
 		"ctl00$ContentPlaceHolder1$hfAppName":  {"Öğrenci Bilgi Sistemi"},
 		"ctl00$ContentPlaceHolder1$tbUserName": {email},
 		"ctl00$ContentPlaceHolder1$tbPassword": {password},
 		"ctl00$ContentPlaceHolder1$btnLogin":   {"Giriş / Login"},
-	}
+	}, nil
+}
 
-	req, err = http.NewRequest("POST", loginURL, strings.NewReader(formData.Encode()))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	// POST isteğini gönder
-	resp, err = client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	// Yanıtı kontrol et
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("bad status")
-	}
-
-	req, err = http.NewRequest("GET", token_url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	resp, err = client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// check if user is logged in
-	if !isLoggedIn(body) {
-		return "", fmt.Errorf("login failed")
-	}
+func (s *Service) updatePersonInfo(email, password, token string) {
 	person := s.personManager.GetPerson()
 	s.personManager.SetEmail(email)
 	s.personManager.SetPassword(password)
 	s.personManager.UpdateLoginTime()
-	s.personManager.UpdateToken(string(body))
+	s.personManager.UpdateToken(token)
 	s.personManager.UpdatePerson(person)
-	return string(body), nil
-
 }
 
-// Returns true if user is logged in
-//
-// Works by checking if the response is a html document
-// If response is a html document then user is not logged in
-func isLoggedIn(body []byte) bool {
+func updatePersonFromInfo(person *models.Person, info map[string]interface{}) {
+	if name, ok := info["adSoyad"].(string); ok {
+		names := strings.Split(name, " ")
+		if len(names) >= 2 {
+			person.First_name = names[0]
+			person.Last_name = names[1]
+		}
+	}
+	if email, ok := info["ePosta"].(string); ok {
+		person.Email = email
+	}
+	if department, ok := info["bolumAdiEN"].(string); ok {
+		person.Department = department
+	}
+	if faculty, ok := info["fakulteEN"].(string); ok {
+		person.Faculty = faculty
+	}
+}
 
+func updatePersonAcademicInfo(person *models.Person, info map[string]interface{}) {
+	if class, ok := info["sinifSeviye"].(string); ok {
+		person.Class = string(class)[0:1]
+	}
+	if gpa, ok := info["genelNotOrtalamasi"].(float64); ok {
+		person.GPA = fmt.Sprintf("%.2f", gpa)
+	}
+}
+
+func isLoggedIn(body []byte) bool {
 	doc, err := html.Parse(bytes.NewReader(body))
 	if err != nil {
-		log.Fatal(err)
+		return false
 	}
 
-	// Check if the response contains a login form
 	var hasLoginForm bool
 	var f func(*html.Node)
 	f = func(n *html.Node) {
@@ -207,135 +328,98 @@ func isLoggedIn(body []byte) bool {
 	return !hasLoginForm
 }
 
-func (s *Service) ProfileService(person *models.Person) (models.PersonDTO, error) {
-	token := "Bearer " + s.personManager.GetToken()
-	jar, err := cookiejar.New(nil)
+func isIdentitySelectionPage(body []byte) bool {
+	return bytes.Contains(body, []byte("Öğrenci sistemine devam etmek istediğiniz kimliğinizi seçmeniz"))
+}
+
+func extractActiveIdentity(body []byte) (*Identity, error) {
+	doc, err := html.Parse(bytes.NewReader(body))
 	if err != nil {
-		log.Fatal(err)
-	}
-	// HTTP client oluştur ve cookie jar ekle
-	client := &http.Client{
-		Jar: jar,
+		return nil, err
 	}
 
-	// İlk GET isteği için headers tanımla
-	req, err := http.NewRequest("GET", personal_info_url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Set("User-Agent", "BeeHub")
-	req.Header.Set("Authorization", token)
-	// İstek gönder
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
+	var identity *Identity
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if identity != nil {
+			return
+		}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+		if n.Type == html.ElementNode && n.Data == "div" {
+			// Check if this is an identity card
+			isIdentityCard := false
+			for _, attr := range n.Attr {
+				if attr.Key == "class" && strings.Contains(attr.Val, "identity-card") {
+					isIdentityCard = true
+					break
+				}
+			}
 
-	var info_response map[string]interface{}
-	err = json.Unmarshal(body, &info_response)
-	if err != nil {
-		log.Fatal(err)
+			if isIdentityCard {
+				// Find the link that contains the identity information
+				var findLink func(*html.Node) string
+				findLink = func(n *html.Node) string {
+					if n.Type == html.ElementNode && n.Data == "a" {
+						for _, attr := range n.Attr {
+							if attr.Key == "href" {
+								return attr.Val
+							}
+						}
+					}
+					for c := n.FirstChild; c != nil; c = c.NextSibling {
+						if link := findLink(c); link != "" {
+							return link
+						}
+					}
+					return ""
+				}
 
-	}
-	// Accessing the nested map and the adSoyad field
-	if kisiselBilgiler, ok := info_response["kisiselBilgiler"].(map[string]interface{}); ok {
+				// Find status text
+				var findStatus func(*html.Node) string
+				findStatus = func(n *html.Node) string {
+					if n.Type == html.ElementNode && n.Data == "td" {
+						if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+							if strings.Contains(n.FirstChild.Data, "Aktif") {
+								return "Aktif"
+							}
+						}
+					}
+					for c := n.FirstChild; c != nil; c = c.NextSibling {
+						if status := findStatus(c); status != "" {
+							return status
+						}
+					}
+					return ""
+				}
 
-		name, ok := kisiselBilgiler["adSoyad"].(string)
-		if ok {
-			// Splitting the name into first and last name
-			names := strings.Split(name, " ")
-			if len(names) >= 2 {
+				if status := findStatus(n); status == "Aktif" {
+					if link := findLink(n); link != "" {
+						// Parse the link to extract identity information
+						u, err := url.Parse(link)
+						if err != nil {
+							return
+						}
 
-				person.First_name = names[0]
-				person.Last_name = names[1]
+						identity = &Identity{
+							ID:        u.Query().Get("id"),
+							StudentNo: u.Query().Get("ogrNo"),
+							ReturnURL: u.Query().Get("returnURL"),
+							Status:    "Aktif",
+						}
+						return
+					}
+				}
 			}
 		}
-		email, ok := kisiselBilgiler["ePosta"].(string)
-		if ok {
-			person.Email = email
-		}
-		department, ok := kisiselBilgiler["bolumAdiEN"].(string)
-		if ok {
-			person.Department = department
-		}
-		faculty, ok := kisiselBilgiler["fakulteEN"].(string)
-		if ok {
-			person.Faculty = faculty
-		}
-	} else {
-		fmt.Println("kisiselBilgiler field is not a map or not found")
-	}
-
-	// Fotoğraf isteği için headers tanımla
-	req, err = http.NewRequest("GET", photo_url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Set("Authorization", token)
-	// İstek gönder
-	resp, err = client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-	var photoResponse map[string]interface{}
-	body, err = io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = json.Unmarshal(body, &photoResponse)
-	if err != nil {
-		log.Fatal(err)
-	}
-	photoBase64, ok := photoResponse["base64Fotograf"].(string)
-	if ok {
-		person.Photo_base64 = photoBase64
-	}
-
-	// GPA ve sınıf isteği için headers tanımla
-	req, err = http.NewRequest("GET", gpa_and_grade_url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Set("Authorization", token)
-	// İstek gönder
-	resp, err = client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	var classResponse map[string]interface{}
-	body, err = io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = json.Unmarshal(body, &classResponse)
-	if err != nil {
-		log.Fatal(err)
-
-	}
-
-	if academicInfo, ok := classResponse["akademikDurum"].(map[string]interface{}); ok {
-		class, ok := academicInfo["sinifSeviye"].(string)
-		if ok {
-			person.Class = string(class)[0:1]
-		}
-		gpa, ok := academicInfo["genelNotOrtalamasi"].(float64)
-		if ok {
-			person.GPA = fmt.Sprintf("%.2f", gpa)
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
 		}
 	}
+	f(doc)
 
-	// Person güncelle ve DTO oluştur
-	s.personManager.UpdatePerson(person)
-	personDTO := models.ToPersonDTO(*person)
-	return personDTO, nil
+	if identity == nil {
+		return nil, fmt.Errorf("no active identity found")
+	}
+
+	return identity, nil
 }
