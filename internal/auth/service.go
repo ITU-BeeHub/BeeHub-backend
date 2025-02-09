@@ -35,18 +35,15 @@ var apiURLs = URLs{
 
 type Service struct {
 	personManager *pkg.PersonManager
-	client        *http.Client
 }
 
 func NewService(personManager *pkg.PersonManager) *Service {
-	jar, _ := cookiejar.New(nil)
 	return &Service{
 		personManager: personManager,
-		client:        &http.Client{Jar: jar},
 	}
 }
 
-func (s *Service) makeRequest(method, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
+func (s *Service) makeRequestWithClient(client *http.Client, method, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
@@ -57,7 +54,7 @@ func (s *Service) makeRequest(method, url string, body io.Reader, headers map[st
 		req.Header.Set(key, value)
 	}
 
-	resp, err := s.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
@@ -75,8 +72,15 @@ type Identity struct {
 }
 
 func (s *Service) LoginService(email, password string) (string, error) {
+	// Clear any existing session
+	s.LogoutService()
+
+	// Create new client for each login attempt
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar}
+
 	// Initial GET request to get the login page
-	resp, err := s.makeRequest("GET", apiURLs.BaseURL, nil, nil)
+	resp, err := s.makeRequestWithClient(client, "GET", apiURLs.BaseURL, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +89,7 @@ func (s *Service) LoginService(email, password string) (string, error) {
 	loginURL := resp.Request.Response.Request.URL.String()
 
 	// Get login form
-	resp, err = s.makeRequest("GET", loginURL, nil, nil)
+	resp, err = s.makeRequestWithClient(client, "GET", loginURL, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +102,7 @@ func (s *Service) LoginService(email, password string) (string, error) {
 
 	// Login POST request
 	headers := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
-	resp, err = s.makeRequest("POST", loginURL, strings.NewReader(formData.Encode()), headers)
+	resp, err = s.makeRequestWithClient(client, "POST", loginURL, strings.NewReader(formData.Encode()), headers)
 	if err != nil {
 		return "", err
 	}
@@ -121,7 +125,7 @@ func (s *Service) LoginService(email, password string) (string, error) {
 		identityURL := fmt.Sprintf("/login/SetIdentity?id=%s&returnURL=%s&yetkiAnahtari=ogrenci&ogrNo=%s",
 			identity.ID, identity.ReturnURL, identity.StudentNo)
 
-		resp, err = s.makeRequest("GET", apiURLs.BaseURL+identityURL, nil, nil)
+		resp, err = s.makeRequestWithClient(client, "GET", apiURLs.BaseURL+identityURL, nil, nil)
 		if err != nil {
 			return "", err
 		}
@@ -129,7 +133,7 @@ func (s *Service) LoginService(email, password string) (string, error) {
 	}
 
 	// Get JWT token
-	resp, err = s.makeRequest("GET", apiURLs.Token, nil, nil)
+	resp, err = s.makeRequestWithClient(client, "GET", apiURLs.Token, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +177,7 @@ func (s *Service) ProfileService(person *models.Person) (models.PersonDTO, error
 }
 
 func (s *Service) fetchPersonalInfo(person *models.Person, headers map[string]string) error {
-	resp, err := s.makeRequest("GET", apiURLs.PersonalInfo, nil, headers)
+	resp, err := s.makeRequestWithClient(&http.Client{}, "GET", apiURLs.PersonalInfo, nil, headers)
 	if err != nil {
 		return err
 	}
@@ -191,7 +195,7 @@ func (s *Service) fetchPersonalInfo(person *models.Person, headers map[string]st
 }
 
 func (s *Service) fetchPhoto(person *models.Person, headers map[string]string) error {
-	resp, err := s.makeRequest("GET", apiURLs.Photo, nil, headers)
+	resp, err := s.makeRequestWithClient(&http.Client{}, "GET", apiURLs.Photo, nil, headers)
 	if err != nil {
 		return err
 	}
@@ -209,7 +213,7 @@ func (s *Service) fetchPhoto(person *models.Person, headers map[string]string) e
 }
 
 func (s *Service) fetchAcademicInfo(person *models.Person, headers map[string]string) error {
-	resp, err := s.makeRequest("GET", apiURLs.GpaAndGrade, nil, headers)
+	resp, err := s.makeRequestWithClient(&http.Client{}, "GET", apiURLs.GpaAndGrade, nil, headers)
 	if err != nil {
 		return err
 	}
@@ -272,6 +276,7 @@ func extractFormData(body io.Reader, email, password string) (url.Values, error)
 func (s *Service) updatePersonInfo(email, password, token string) {
 	person := s.personManager.GetPerson()
 	s.personManager.SetEmail(email)
+	s.personManager.SetEmail(email)
 	s.personManager.SetPassword(password)
 	s.personManager.UpdateLoginTime()
 	s.personManager.UpdateToken(token)
@@ -286,9 +291,7 @@ func updatePersonFromInfo(person *models.Person, info map[string]interface{}) {
 			person.Last_name = names[1]
 		}
 	}
-	if email, ok := info["ePosta"].(string); ok {
-		person.Email = email
-	}
+
 	if department, ok := info["bolumAdiEN"].(string); ok {
 		person.Department = department
 	}
@@ -422,4 +425,8 @@ func extractActiveIdentity(body []byte) (*Identity, error) {
 	}
 
 	return identity, nil
+}
+
+func (s *Service) LogoutService() {
+	s.personManager.ClearPerson()
 }

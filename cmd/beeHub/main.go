@@ -116,7 +116,7 @@ func main() {
 	authHandler := auth.NewHandler(authService)
 
 	r.POST("/auth/login", authHandler.LoginHandler)
-
+	r.POST("/auth/logout", authHandler.LogoutHandler)
 	// beePicker routes
 	beePickerService := beepicker.NewService(personManager)
 	beePickerHandler := beepicker.NewHandler(beePickerService)

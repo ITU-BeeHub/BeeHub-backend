@@ -38,14 +38,13 @@ func (h *Handler) CourseHandler(c *gin.Context) {
 }
 
 type CourseRequest struct {
-	CRN     string          `json:"crn" binding:"required"`
+	CRN      string          `json:"crn" binding:"required"`
 	Reserves []CourseRequest `json:"reserves,omitempty"`
-  }
-  
-  type pickRequest struct {
-	Courses []CourseRequest `json:"courses" binding:"required,min=1"`
-  }  
+}
 
+type pickRequest struct {
+	Courses []CourseRequest `json:"courses" binding:"required,min=1"`
+}
 
 // PickHandler handles the request for picking a course from the BeePicker.
 // @Tags BeePicker
@@ -59,29 +58,27 @@ type CourseRequest struct {
 // @Router /beePicker/pick [post]
 func (h *Handler) PickHandler(c *gin.Context) {
 	var req pickRequest
-  
+
 	if err := c.ShouldBindJSON(&req); err != nil {
-	  c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	  return
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
-  
+
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.Header().Set("Transfer-Encoding", "chunked")
 	c.Writer.WriteHeader(http.StatusOK)
 	c.Writer.Flush()
-  
+
 	// Execute the batch request logic, sending each batch response to the client
 	err := h.service.PickService(req.Courses, c)
 	if err != nil {
-	  // Note: Since headers are already sent, you cannot use c.JSON here.
-	  // Instead, send an error message in the stream.
-	  errorData := map[string]string{"error": err.Error()}
-	  jsonData, _ := json.Marshal(errorData)
-	  c.Writer.Write(jsonData)
-	  c.Writer.Write([]byte("\n"))
-	  c.Writer.Flush()
-	  return
+		// Note: Since headers are already sent, you cannot use c.JSON here.
+		// Instead, send an error message in the stream.
+		errorData := map[string]string{"error": err.Error()}
+		jsonData, _ := json.Marshal(errorData)
+		c.Writer.Write(jsonData)
+		c.Writer.Write([]byte("\n"))
+		c.Writer.Flush()
+		return
 	}
-  }
-  
-  
+}
