@@ -27,7 +27,9 @@ func (pm *PersonManager) GetPerson() *models.Person {
 func (pm *PersonManager) UpdatePerson(person *models.Person) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	pm.person = person
+	// Deep copy to prevent reference issues
+	newPerson := *person
+	pm.person = &newPerson
 }
 
 func (pm *PersonManager) UpdateToken(token string) {
@@ -116,4 +118,10 @@ func (pm *PersonManager) SetPassword(password string) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	pm.person.Password = password
+}
+
+func (pm *PersonManager) ClearPerson() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	pm.person = &models.Person{}
 }

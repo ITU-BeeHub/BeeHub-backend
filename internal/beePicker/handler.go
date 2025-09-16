@@ -1,6 +1,7 @@
 package beepicker
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -36,8 +37,13 @@ func (h *Handler) CourseHandler(c *gin.Context) {
 
 }
 
+type CourseRequest struct {
+	CRN      string          `json:"crn" binding:"required"`
+	Reserves []CourseRequest `json:"reserves,omitempty"`
+}
+
 type pickRequest struct {
-	CourseCodes []string `json:"courseCodes" binding:"required,min=1,max=15"`
+	Courses []CourseRequest `json:"courses" binding:"required,min=1"`
 }
 
 // PickHandler handles the request for picking a course from the BeePicker.
@@ -53,17 +59,26 @@ type pickRequest struct {
 func (h *Handler) PickHandler(c *gin.Context) {
 	var req pickRequest
 
-	// JSON bind işlemi ve hata kontrolü
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// CRN array'ini service katmanına iletme
-	data, err := h.service.PickService(req.CourseCodes)
+	c.Writer.Header().Set("Content-Type", "application/json")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+	c.Writer.WriteHeader(http.StatusOK)
+	c.Writer.Flush()
+
+	// Execute the batch request logic, sending each batch response to the client
+	err := h.service.PickService(req.Courses, c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// Note: Since headers are already sent, you cannot use c.JSON here.
+		// Instead, send an error message in the stream.
+		errorData := map[string]string{"error": err.Error()}
+		jsonData, _ := json.Marshal(errorData)
+		c.Writer.Write(jsonData)
+		c.Writer.Write([]byte("\n"))
+		c.Writer.Flush()
 		return
 	}
-	c.JSON(http.StatusOK, data)
 }
