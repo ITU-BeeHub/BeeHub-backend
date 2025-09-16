@@ -27,7 +27,7 @@ type URLs struct {
 var apiURLs = URLs{
 	Token:        "https://obs.itu.edu.tr/ogrenci/auth/jwt",
 	Photo:        "https://obs.itu.edu.tr/api/ogrenci/OgrenciFotograf",
-	GpaAndGrade:  "https://obs.itu.edu.tr/api/ogrenci/AkademikDurum/759",
+	GpaAndGrade:  "https://obs.itu.edu.tr/api/ogrenci/AkademikDurum/775",
 	PersonalInfo: "https://obs.itu.edu.tr/api/ogrenci/KisiselBilgiler",
 	Transcript:   "https://obs.itu.edu.tr/api/ogrenci/Belgeler/TranskriptIngilizceOnizleme",
 	BaseURL:      "https://obs.itu.edu.tr",
