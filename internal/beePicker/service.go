@@ -299,7 +299,7 @@ func sendCourseRequestBatch(client *resty.Client, crns []string, token string) (
 		"authorization": "Bearer " + token,
 		"origin":        "https://obs.itu.edu.tr",
 		"referer":       "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
-		"User-Agent":    "BeeHub",
+		"User-Agent":    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/",
 	}
 
 	payload := map[string]interface{}{
