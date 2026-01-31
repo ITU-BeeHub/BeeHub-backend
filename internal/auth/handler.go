@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	models "github.com/ITU-BeeHub/BeeHub-backend/pkg/models"
@@ -25,6 +26,21 @@ type LoginRequest struct {
 // AuthMiddleware checks if the user is authenticated
 func AuthMiddleware(authService *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
+		if authHeader != "" {
+			token := authHeader
+			lower := strings.ToLower(authHeader)
+			if strings.HasPrefix(lower, "bearer ") {
+				token = strings.TrimSpace(authHeader[len("Bearer "):])
+			}
+			if token != "" {
+				authService.personManager.UpdateToken(token)
+				authService.personManager.UpdateLoginTime()
+				c.Next()
+				return
+			}
+		}
+
 		person := authService.personManager.GetPerson()
 		// Token kontrolünü email kontrolünden ayırıyoruz
 		if person.Token == "" {
@@ -36,11 +52,16 @@ func AuthMiddleware(authService *Service) gin.HandlerFunc {
 	}
 }
 
-// @Tags Login
-// @Summary Hello World
+// @Tags Auth
+// @Summary Login and get token
 // @Accept json
 // @Produce json
 // @Param login body LoginRequest true "Login credentials"
+// @Success 200 {object} map[string]string "token"
+// @Failure 400 {object} map[string]string "validation error"
+// @Failure 401 {object} map[string]string "login failed"
+// @Failure 502 {object} map[string]string "kepler service unavailable"
+// @Failure 500 {object} map[string]string "internal server error"
 // @Router /auth/login [post]
 func (h *Handler) LoginHandler(c *gin.Context) {
 	var req LoginRequest
@@ -75,10 +96,15 @@ func (h *Handler) LoginHandler(c *gin.Context) {
 
 }
 
-// @Tags Profile
-// @Summary Hello World
+// @Tags Auth
+// @Summary Get authenticated user profile
 // @Accept json
 // @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.PersonDTO
+// @Failure 401 {object} map[string]string "unauthenticated"
+// @Failure 404 {object} map[string]string "profile not found"
+// @Failure 500 {object} map[string]string "internal server error"
 // @Router /auth/profile [get]
 func (h *Handler) ProfileHandler(c *gin.Context) {
 	person := h.authService.personManager.GetPerson()
@@ -89,8 +115,8 @@ func (h *Handler) ProfileHandler(c *gin.Context) {
 		return
 	}
 
-	// Token yenilemesi gerekiyorsa
-	if time.Since(person.LoginTime).Hours() >= 4 {
+	// Token yenilemesi gerekiyorsa (kimlik bilgileri mevcutsa)
+	if person.Email != "" && person.Password != "" && time.Since(person.LoginTime).Hours() >= 4 {
 		token, err := h.authService.LoginService(person.Email, person.Password)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "session expired"})
@@ -120,11 +146,11 @@ func (h *Handler) ProfileHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, dto)
 }
 
-// @Tags Logout
+// @Tags Auth
 // @Summary Logout user
 // @Accept json
 // @Produce json
-// @Success 200 {object} MessageResponse
+// @Success 200 {object} map[string]string "message"
 // @Router /auth/logout [post]
 func (h *Handler) LogoutHandler(c *gin.Context) {
 	h.authService.LogoutService()
