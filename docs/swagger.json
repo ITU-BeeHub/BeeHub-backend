@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Bu, BeeHub Ders Seçim Botu için API dokümantasyonudur.",
+        "description": "BeeHub Ders Seçim Botu için API dokümantasyonu.",
         "title": "BeeHub Ders Seçim Botu API",
         "contact": {},
         "version": "1.0"
@@ -18,9 +18,9 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Login"
+                    "Auth"
                 ],
-                "summary": "Hello World",
+                "summary": "Login and get token",
                 "parameters": [
                     {
                         "description": "Login credentials",
@@ -32,11 +32,57 @@
                         }
                     }
                 ],
-                "responses": {}
+                "responses": {
+                    "200": {
+                        "description": "token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "validation error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "login failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "kepler service unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
-        "/auth/profile": {
-            "get": {
+        "/auth/logout": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -44,10 +90,74 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Profile"
+                    "Auth"
                 ],
-                "summary": "Hello World",
-                "responses": {}
+                "summary": "Logout user",
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/profile": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get authenticated user profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PersonDTO"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthenticated",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/beePicker/courses": {
@@ -59,11 +169,43 @@
                     "BeePicker"
                 ],
                 "summary": "Retrieves courses from the BeePicker.",
-                "responses": {}
+                "responses": {
+                    "200": {
+                        "description": "course list",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "cannot retrieve course information",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/beePicker/pick": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Picks courses (ECRN) and/or drops courses (SCRN) based on the request.",
                 "consumes": [
                     "application/json"
                 ],
@@ -73,10 +215,10 @@
                 "tags": [
                     "BeePicker"
                 ],
-                "summary": "Picks a course from the kepler.",
+                "summary": "Picks or drops courses from Kepler.",
                 "parameters": [
                     {
-                        "description": "Request body containing the course codes",
+                        "description": "Request body containing courses to add and/or drop",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -87,62 +229,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Picking successful",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/beePicker/schedule": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "BeePicker"
-                ],
-                "summary": "Retrieves schedules from the BeePicker.",
-                "responses": {}
-            },
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "BeePicker"
-                ],
-                "summary": "Selects a course from the BeePicker.",
-                "parameters": [
-                    {
-                        "description": "Request body containing the ECRN",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/beepicker.scheduleSaveRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Selection successful",
+                        "description": "Operation successful",
                         "schema": {
                             "type": "string"
                         }
@@ -237,10 +324,50 @@
                 }
             }
         },
+        "beepicker.CourseRequest": {
+            "type": "object",
+            "required": [
+                "crn"
+            ],
+            "properties": {
+                "crn": {
+                    "type": "string"
+                },
+                "reserves": {
+                    "description": "Yedek dersler, ana ders başarısız olursa denenir",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/beepicker.CourseRequest"
+                    }
+                }
+            }
+        },
         "beepicker.pickRequest": {
             "type": "object",
             "properties": {
-                "courseCodes": {
+                "ECRN": {
+                    "description": "Alternatif alan adları - doğrudan ECRN/SCRN kullanımı için",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "SCRN": {
+                    "description": "Silinecek CRN'ler (basit liste)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "courses": {
+                    "description": "Eklenecek dersler - detaylı yapı ile (rezerve destekli)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/beepicker.CourseRequest"
+                    }
+                },
+                "dropCourses": {
+                    "description": "Silinecek ders CRN'leri (SCRN olarak gönderilir)",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -248,25 +375,42 @@
                 }
             }
         },
-        "beepicker.scheduleSaveRequest": {
+        "models.PersonDTO": {
             "type": "object",
             "properties": {
-                "ECRN": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                "class": {
+                    "type": "string"
                 },
-                "SCRN": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                "department": {
+                    "type": "string"
                 },
-                "scheduleName": {
+                "email": {
+                    "type": "string"
+                },
+                "faculty": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "gpa": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "photo": {
                     "type": "string"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Authorization header with Bearer token. Example: \"Bearer {token}\"",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }

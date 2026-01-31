@@ -11,29 +11,47 @@ definitions:
     - password
     type: object
   beepicker.pickRequest:
+    description: Request body for adding and/or dropping courses
     properties:
       courseCodes:
+        description: Course CRNs to add (legacy format, same as ECRN)
+        items:
+          type: string
+        type: array
+      ECRN:
+        description: Course CRNs to add
+        items:
+          type: string
+        type: array
+      SCRN:
+        description: Course CRNs to drop
         items:
           type: string
         type: array
     type: object
-  beepicker.scheduleSaveRequest:
+  models.PersonDTO:
     properties:
-      ECRN:
-        items:
-          type: integer
-        type: array
-      SCRN:
-        items:
-          type: integer
-        type: array
-      scheduleName:
+      class:
+        type: string
+      department:
+        type: string
+      email:
+        type: string
+      faculty:
+        type: string
+      first_name:
+        type: string
+      gpa:
+        type: string
+      last_name:
+        type: string
+      photo:
         type: string
     type: object
 host: localhost:8080
 info:
   contact: {}
-  description: Bu, BeeHub Ders Seçim Botu için API dokümantasyonudur.
+  description: BeeHub Ders Seçim Botu için API dokümantasyonu.
   title: BeeHub Ders Seçim Botu API
   version: "1.0"
 paths:
@@ -50,25 +68,112 @@ paths:
           $ref: '#/definitions/auth.LoginRequest'
       produces:
       - application/json
-      responses: {}
-      summary: Hello World
+      responses:
+        "200":
+          description: token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: login failed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: kepler service unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login and get token
       tags:
-      - Login
+      - Auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Logout user
+      tags:
+      - Auth
   /auth/profile:
     get:
       consumes:
       - application/json
       produces:
       - application/json
-      responses: {}
-      summary: Hello World
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PersonDTO'
+        "401":
+          description: unauthenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get authenticated user profile
       tags:
-      - Profile
+      - Auth
   /beePicker/courses:
     get:
       produces:
       - application/json
-      responses: {}
+      responses:
+        "200":
+          description: course list
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: cannot retrieve course information
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Retrieves courses from the BeePicker.
       tags:
       - BeePicker
@@ -76,8 +181,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: Picks courses (ECRN) and/or drops courses (SCRN) based on the request.
       parameters:
-      - description: Request body containing the course codes
+      - description: Request body containing courses to add and/or drop
         in: body
         name: request
         required: true
@@ -87,7 +193,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Picking successful
+          description: Operation successful
           schema:
             type: string
         "400":
@@ -98,43 +204,9 @@ paths:
           description: Internal server error
           schema:
             type: string
-      summary: Picks a course from the kepler.
-      tags:
-      - BeePicker
-  /beePicker/schedule:
-    get:
-      produces:
-      - application/json
-      responses: {}
-      summary: Retrieves schedules from the BeePicker.
-      tags:
-      - BeePicker
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Request body containing the ECRN
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/beepicker.scheduleSaveRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Selection successful
-          schema:
-            type: string
-        "400":
-          description: Bad request
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      summary: Selects a course from the BeePicker.
+      security:
+      - BearerAuth: []
+      summary: Picks or drops courses from Kepler.
       tags:
       - BeePicker
   /start-service:
@@ -175,4 +247,10 @@ paths:
       summary: Stop the BeeHubBot process
       tags:
       - Service
+securityDefinitions:
+  BearerAuth:
+    description: 'Authorization header with Bearer token. Example: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
