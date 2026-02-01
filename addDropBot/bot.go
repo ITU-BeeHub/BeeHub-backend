@@ -6,9 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
-
-	"github.com/ITU-BeeHub/BeeHub-backend/addDropBot/documents" // Buradaki dosya yolunu proje yapınıza göre düzenleyin
 
 	"github.com/kardianos/service"
 )
@@ -48,7 +47,7 @@ func (p *program) run() {
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
-	documentsDir, err := documents.GetDocumentsDir() // GetDocumentsDir fonksiyonunu doğru paketten çağırın
+	documentsDir, err := GetDocumentsDir()
 	if err != nil {
 		log.Fatalf("Failed to get Documents directory: %v", err)
 	}
@@ -221,4 +220,24 @@ func checkStop(crns []string) {
 	if len(crns) == 0 {
 		log.Fatal("All courses have been added.")
 	}
+}
+
+// GetDocumentsDir returns the path to the user's Documents directory
+func GetDocumentsDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	var documentsDir string
+	switch runtime.GOOS {
+	case "windows":
+		documentsDir = filepath.Join(homeDir, "Documents")
+	case "darwin":
+		documentsDir = filepath.Join(homeDir, "Documents")
+	default: // linux and others
+		documentsDir = filepath.Join(homeDir, "Documents")
+	}
+
+	return documentsDir, nil
 }
