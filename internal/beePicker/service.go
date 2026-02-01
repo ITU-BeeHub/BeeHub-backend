@@ -258,7 +258,7 @@ func (s *Service) sendCourseRequests(client *resty.Client, addCRNs []string, dro
 		fmt.Println()
 		fmt.Println(responses)
 		// Saniyede bir istek göndermek için bekleme
-		time.Sleep(3100 * time.Millisecond)
+		time.Sleep(3050 * time.Millisecond)
 	}
 
 	if len(errors) > 0 {
