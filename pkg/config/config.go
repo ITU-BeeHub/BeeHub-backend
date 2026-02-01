@@ -28,9 +28,12 @@ type RequestConfig struct {
 
 // URLConfig API endpoint URL'lerini içerir
 type URLConfig struct {
-	CoursePickerAPI string `json:"coursePickerApi"`
-	Origin          string `json:"origin"`
-	Referer         string `json:"referer"`
+	CoursePickerAPI    string `json:"coursePickerApi"`
+	Origin             string `json:"origin"`
+	Referer            string `json:"referer"`
+	AcademicStatusBase string `json:"academicStatusBase"`
+	TermList           string `json:"termList"`
+	ProfilePhotoURL    string `json:"profilePhotoUrl"`
 }
 
 // ConfigManager remote config'i yönetir
@@ -94,9 +97,12 @@ func getDefaultFallbackConfig() *RemoteConfig {
 			ContentType: "application/json",
 		},
 		URLs: URLConfig{
-			CoursePickerAPI: "https://obs.itu.edu.tr/api/ders-kayit/v21",
-			Origin:          "https://obs.itu.edu.tr",
-			Referer:         "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+			CoursePickerAPI:    "https://obs.itu.edu.tr/api/ders-kayit/v21",
+			Origin:             "https://obs.itu.edu.tr",
+			Referer:            "https://obs.itu.edu.tr/ogrenci/DersKayitIslemleri/DersKayit",
+			AcademicStatusBase: "https://obs.itu.edu.tr/api/ogrenci/AkademikDurum",
+			TermList:           "https://obs.itu.edu.tr/api/ogrenci/DonemListesi/",
+			ProfilePhotoURL:    "https://portal.itu.edu.tr/services/ui/photo.aspx?subsession={subsession}",
 		},
 		Version: DefaultVersion,
 	}
@@ -194,6 +200,15 @@ func (cm *ConfigManager) mergeWithFallback(config *RemoteConfig) {
 	}
 	if config.URLs.Referer == "" {
 		config.URLs.Referer = fallback.URLs.Referer
+	}
+	if config.URLs.AcademicStatusBase == "" {
+		config.URLs.AcademicStatusBase = fallback.URLs.AcademicStatusBase
+	}
+	if config.URLs.TermList == "" {
+		config.URLs.TermList = fallback.URLs.TermList
+	}
+	if config.URLs.ProfilePhotoURL == "" {
+		config.URLs.ProfilePhotoURL = fallback.URLs.ProfilePhotoURL
 	}
 	if config.Version == "" {
 		config.Version = fallback.Version
