@@ -39,13 +39,18 @@ func (h *Handler) CourseHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+type CourseRequest struct {
+	CRN      string          `json:"crn" binding:"required"`
+	Reserves []CourseRequest `json:"reserves,omitempty"`
+}
+
 // pickRequest ders seçim/silme isteğini temsil eder
 // Tek bir API isteğinde hem ekleme hem silme yapılabilir
 type pickRequest struct {
-	CourseCodes []string `json:"courseCodes,omitempty"`
-
-	ECRN []string `json:"ECRN,omitempty"` // Eklenecek CRN'ler
-	SCRN []string `json:"SCRN,omitempty"` // Silinecek CRN'ler
+	CourseCodes []string        `json:"courseCodes,omitempty"`
+	Courses     []CourseRequest `json:"courses,omitempty"`
+	ECRN        []string        `json:"ECRN,omitempty"` // Eklenecek CRN'ler
+	SCRN        []string        `json:"SCRN,omitempty"` // Silinecek CRN'ler
 }
 
 // PickHandler handles the request for picking/dropping courses from the BeePicker.
@@ -69,26 +74,33 @@ func (h *Handler) PickHandler(c *gin.Context) {
 		return
 	}
 
-	// Eklenecek dersler: ECRN veya eski format courseCodes
-	var addCRNs []string
-	if len(req.ECRN) > 0 {
-		addCRNs = req.ECRN
-	} else if len(req.CourseCodes) > 0 {
-		// Eski format uyumluluğu
-		addCRNs = req.CourseCodes
+	// Course list (reserve-aware)
+	courses := req.Courses
+
+	// ECRN veya eski format courseCodes -> CourseRequest listesi
+	if len(courses) == 0 {
+		var addCRNs []string
+		if len(req.ECRN) > 0 {
+			addCRNs = req.ECRN
+		} else if len(req.CourseCodes) > 0 {
+			addCRNs = req.CourseCodes
+		}
+		for _, crn := range addCRNs {
+			courses = append(courses, CourseRequest{CRN: crn})
+		}
 	}
 
 	// Silinecek dersler: SCRN
 	dropCRNs := req.SCRN
 
 	// En az bir ders ekleme veya silme işlemi olmalı
-	if len(addCRNs) == 0 && len(dropCRNs) == 0 {
+	if len(courses) == 0 && len(dropCRNs) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one course to add or drop is required"})
 		return
 	}
 
-	// CRN array'ini service katmanına iletme
-	data, err := h.service.PickService(addCRNs, dropCRNs)
+	// Service katmanına iletme
+	data, err := h.service.PickService(courses, dropCRNs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

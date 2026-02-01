@@ -202,37 +202,83 @@ func getNewestFolder() (string, error) {
 }
 
 // PickService ders ekleme ve silme işlemlerini gerçekleştirir
-// addCRNs: Eklenecek ders CRN'leri (ECRN)
+// courses: Eklenecek dersler (rezerveler dahil)
 // dropCRNs: Silinecek ders CRN'leri (SCRN)
-func (s *Service) PickService(addCRNs []string, dropCRNs []string) (map[string]map[string]interface{}, error) {
+func (s *Service) PickService(courses []CourseRequest, dropCRNs []string) (map[string]map[string]interface{}, error) {
 	client := resty.New()
 	token := s.personManager.GetToken()
 
-	// İstekleri gönder ve yanıtları topla
-	responses, err := s.sendCourseRequests(client, addCRNs, dropCRNs, token)
-	if err != nil {
-		return nil, err
+	queue := append([]CourseRequest{}, courses...)
+	allResponses := []*resty.Response{}
+
+	dropSent := false
+	maxAttempts := 5
+	attempt := 0
+
+	for attempt < maxAttempts && (len(queue) > 0 || (!dropSent && len(dropCRNs) > 0)) {
+		attempt++
+		var currentBatchCRNs []string
+		crnToCourseMap := make(map[string]CourseRequest)
+
+		for _, course := range queue {
+			currentBatchCRNs = append(currentBatchCRNs, course.CRN)
+			crnToCourseMap[course.CRN] = course
+		}
+
+		var currentDropCRNs []string
+		if !dropSent && len(dropCRNs) > 0 {
+			currentDropCRNs = dropCRNs
+			dropSent = true
+		}
+
+		if len(currentBatchCRNs) == 0 && len(currentDropCRNs) == 0 {
+			break
+		}
+
+		resp, err := s.sendCourseRequestBatch(client, currentBatchCRNs, currentDropCRNs, token)
+		if err != nil {
+			return nil, err
+		}
+		allResponses = append(allResponses, resp)
+
+		batchResult, err := parseRawPickResponse(resp)
+		if err != nil {
+			return nil, err
+		}
+
+		nextQueue := []CourseRequest{}
+
+		for _, ecrnResult := range batchResult.EcrnResultList {
+			crn, _ := ecrnResult["crn"].(string)
+			course, ok := crnToCourseMap[crn]
+			if !ok {
+				continue
+			}
+
+			statusCode := toInt(ecrnResult["statusCode"])
+			if statusCode != 0 && len(course.Reserves) > 0 {
+				nextQueue = append(nextQueue, course.Reserves...)
+			}
+		}
+
+		queue = nextQueue
+		if attempt < maxAttempts && len(queue) > 0 {
+			time.Sleep(3050 * time.Millisecond)
+		}
 	}
 
-	// Yanıtları birleştir
-	return mergePickResponses(responses)
+	return mergePickResponses(allResponses)
 }
 
-// sendCourseRequests okul API'sine istekleri gönderir
-func (s *Service) sendCourseRequests(client *resty.Client, addCRNs []string, dropCRNs []string, token string) ([]*resty.Response, error) {
-	var responses []*resty.Response
-	var errors []error
-
-	// ConfigManager'dan dinamik header'ları al
+// sendCourseRequestBatch tek bir batch isteği gönderir
+func (s *Service) sendCourseRequestBatch(client *resty.Client, addCRNs []string, dropCRNs []string, token string) (*resty.Response, error) {
 	headers := s.configManager.GetHeaders(token)
 
-	// Payload oluştur - tek istekte hem ECRN hem SCRN gönderilir
 	payload := map[string]interface{}{
 		"ECRN": addCRNs,
 		"SCRN": dropCRNs,
 	}
 
-	// Nil slice'ları boş slice'a çevir
 	if addCRNs == nil {
 		payload["ECRN"] = []string{}
 	}
@@ -240,32 +286,49 @@ func (s *Service) sendCourseRequests(client *resty.Client, addCRNs []string, dro
 		payload["SCRN"] = []string{}
 	}
 
-	// ConfigManager'dan URL al
 	url := s.configManager.GetCoursePickerURL()
 
-	// 5 deneme yap (eski davranış)
-	for i := 0; i < 5; i++ {
-		resp, err := client.R().
-			SetHeaders(headers).
-			SetBody(payload).
-			Post(url)
+	resp, err := client.R().
+		SetHeaders(headers).
+		SetBody(payload).
+		Post(url)
 
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-		responses = append(responses, resp)
-		fmt.Println()
-		fmt.Println(responses)
-		// Saniyede bir istek göndermek için bekleme
-		time.Sleep(3050 * time.Millisecond)
+	return resp, err
+}
+
+type pickResponse struct {
+	EcrnResultList []map[string]interface{} `json:"ecrnResultList"`
+	ScrnResultList []map[string]interface{} `json:"scrnResultList"`
+}
+
+func parseRawPickResponse(resp *resty.Response) (pickResponse, error) {
+	var result pickResponse
+	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+		return result, fmt.Errorf("error unmarshaling response: %v", err)
 	}
+	return result, nil
+}
 
-	if len(errors) > 0 {
-		return nil, fmt.Errorf("errors occurred while sending course requests: %v", errors)
+func toInt(value interface{}) int {
+	switch v := value.(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case json.Number:
+		i, _ := v.Int64()
+		return int(i)
+	case string:
+		var i int
+		_, _ = fmt.Sscanf(v, "%d", &i)
+		return i
+	default:
+		return 0
 	}
-
-	return responses, nil
 }
 
 // mergePickResponses birden fazla yanıtı birleştirir
